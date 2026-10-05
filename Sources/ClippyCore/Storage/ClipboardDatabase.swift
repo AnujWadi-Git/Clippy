@@ -4,8 +4,11 @@ import Foundation
 public final class ClipboardDatabase: @unchecked Sendable {
     private let db: SQLiteDatabase
     private let lock = NSLock()
+    private let crypto: CryptoBox?
 
-    public init(path: String) throws {
+    /// `crypto`: when provided, text/preview of pinned items are sealed at rest.
+    public init(path: String, crypto: CryptoBox? = nil) throws {
+        self.crypto = crypto
         db = try SQLiteDatabase(path: path)
         try db.execute("PRAGMA journal_mode=WAL")
         try db.execute("PRAGMA secure_delete=ON")
@@ -30,8 +33,8 @@ public final class ClipboardDatabase: @unchecked Sendable {
 
     private static let cols = "id,kind,category,content_hash,text,preview,blob_path,thumb_path,byte_size,source_bundle,source_name,created_at,last_used_at,copy_count,pinned,pin_order,expires_at"
 
-    private static func item(_ r: SQLiteDatabase.Row) -> ClipboardItem {
-        ClipboardItem(id: r.text(0)!, kind: ClipKind(rawValue: r.text(1) ?? "text") ?? .text,
+    private func item(_ r: SQLiteDatabase.Row) -> ClipboardItem {
+        var it = ClipboardItem(id: r.text(0)!, kind: ClipKind(rawValue: r.text(1) ?? "text") ?? .text,
                       category: ClipCategory(rawValue: r.text(2) ?? "other") ?? .other,
                       contentHash: r.text(3)!, text: r.text(4), preview: r.text(5) ?? "",
                       blobPath: r.text(6), thumbPath: r.text(7), byteSize: r.int(8),
@@ -39,10 +42,21 @@ public final class ClipboardDatabase: @unchecked Sendable {
                       createdAt: r.date(11) ?? Date(), lastUsedAt: r.date(12),
                       copyCount: r.int(13), pinned: r.int(14) != 0,
                       pinOrder: r.optInt(15), expiresAt: r.date(16))
+        if let c = crypto, it.pinned {
+            it.text = it.text.map(c.open)
+            it.preview = c.open(it.preview)
+        }
+        return it
     }
 
     public func insert(_ i: ClipboardItem) throws {
         lock.lock(); defer { lock.unlock() }
+        try insertLocked(i)
+    }
+
+    private func insertLocked(_ i: ClipboardItem) throws {
+        var i = i
+        if let c = crypto, i.pinned { i.text = i.text.map(c.seal); i.preview = c.seal(i.preview) }
         try db.execute("INSERT OR REPLACE INTO clip_item (\(Self.cols)) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", [
             .text(i.id), .text(i.kind.rawValue), .text(i.category.rawValue), .text(i.contentHash),
             .opt(i.text), .text(i.preview), .opt(i.blobPath), .opt(i.thumbPath), .int(Int64(i.byteSize)),
@@ -53,19 +67,19 @@ public final class ClipboardDatabase: @unchecked Sendable {
 
     public func item(withHash hash: String) throws -> ClipboardItem? {
         lock.lock(); defer { lock.unlock() }
-        return try db.query("SELECT \(Self.cols) FROM clip_item WHERE content_hash = ?", [.text(hash)], map: Self.item).first
+        return try db.query("SELECT \(Self.cols) FROM clip_item WHERE content_hash = ?", [.text(hash)], map: item).first
     }
 
     public func item(id: String) throws -> ClipboardItem? {
         lock.lock(); defer { lock.unlock() }
-        return try db.query("SELECT \(Self.cols) FROM clip_item WHERE id = ?", [.text(id)], map: Self.item).first
+        return try db.query("SELECT \(Self.cols) FROM clip_item WHERE id = ?", [.text(id)], map: item).first
     }
 
     /// Pinned first (by pin_order), then most recently used.
     public func all(limit: Int = 10_000) throws -> [ClipboardItem] {
         lock.lock(); defer { lock.unlock() }
         return try db.query("SELECT \(Self.cols) FROM clip_item ORDER BY pinned DESC, pin_order ASC, last_used_at DESC LIMIT ?",
-                            [.int(Int64(limit))], map: Self.item)
+                            [.int(Int64(limit))], map: item)
     }
 
     public func count() throws -> Int {
@@ -80,9 +94,11 @@ public final class ClipboardDatabase: @unchecked Sendable {
 
     public func setPinned(id: String, pinned: Bool, expiresAt: Date?) throws {
         lock.lock(); defer { lock.unlock() }
-        try db.execute("UPDATE clip_item SET pinned = ?, expires_at = ?, pin_order = ? WHERE id = ?",
-                       [.int(pinned ? 1 : 0), .opt(pinned ? nil : expiresAt),
-                        pinned ? .int(Int64(Date().timeIntervalSince1970)) : .null, .text(id)])
+        guard var it = try db.query("SELECT \(Self.cols) FROM clip_item WHERE id = ?", [.text(id)], map: item).first else { return }
+        it.pinned = pinned
+        it.expiresAt = pinned ? nil : expiresAt
+        it.pinOrder = pinned ? Int(Date().timeIntervalSince1970) : nil
+        try insertLocked(it)   // re-seals / re-opens content for the new state
     }
 
     public func touch(id: String, lastUsed: Date, createdAt: Date, expiresAt: Date?, pinned: Bool) throws {
@@ -114,7 +130,7 @@ public final class ClipboardDatabase: @unchecked Sendable {
     public func deleteExpired(now: Date) throws -> [ClipboardItem] {
         lock.lock(); defer { lock.unlock() }
         let gone = try db.query("SELECT \(Self.cols) FROM clip_item WHERE pinned = 0 AND expires_at IS NOT NULL AND expires_at < ?",
-                                [.double(now.timeIntervalSince1970)], map: Self.item)
+                                [.double(now.timeIntervalSince1970)], map: item)
         if !gone.isEmpty {
             try db.execute("DELETE FROM clip_item WHERE pinned = 0 AND expires_at IS NOT NULL AND expires_at < ?",
                            [.double(now.timeIntervalSince1970)])
@@ -124,7 +140,7 @@ public final class ClipboardDatabase: @unchecked Sendable {
 
     public func delete(id: String) throws -> ClipboardItem? {
         lock.lock(); defer { lock.unlock() }
-        let it = try db.query("SELECT \(Self.cols) FROM clip_item WHERE id = ?", [.text(id)], map: Self.item).first
+        let it = try db.query("SELECT \(Self.cols) FROM clip_item WHERE id = ?", [.text(id)], map: item).first
         try db.execute("DELETE FROM clip_item WHERE id = ?", [.text(id)])
         return it
     }
@@ -132,7 +148,7 @@ public final class ClipboardDatabase: @unchecked Sendable {
     public func deleteAll(includingPinned: Bool) throws -> [ClipboardItem] {
         lock.lock(); defer { lock.unlock() }
         let sql = includingPinned ? "" : " WHERE pinned = 0"
-        let gone = try db.query("SELECT \(Self.cols) FROM clip_item\(sql)", map: Self.item)
+        let gone = try db.query("SELECT \(Self.cols) FROM clip_item\(sql)", map: item)
         try db.execute("DELETE FROM clip_item\(sql)")
         return gone
     }
@@ -141,13 +157,13 @@ public final class ClipboardDatabase: @unchecked Sendable {
     public func unpinnedOverflow(maxItems: Int) throws -> [ClipboardItem] {
         lock.lock(); defer { lock.unlock() }
         return try db.query("SELECT \(Self.cols) FROM clip_item WHERE pinned = 0 ORDER BY last_used_at DESC LIMIT -1 OFFSET ?",
-                            [.int(Int64(maxItems))], map: Self.item)
+                            [.int(Int64(maxItems))], map: item)
     }
 
     /// Unpinned items, oldest first (for disk-budget eviction).
     public func unpinnedOldestFirst() throws -> [ClipboardItem] {
         lock.lock(); defer { lock.unlock() }
-        return try db.query("SELECT \(Self.cols) FROM clip_item WHERE pinned = 0 ORDER BY last_used_at ASC", map: Self.item)
+        return try db.query("SELECT \(Self.cols) FROM clip_item WHERE pinned = 0 ORDER BY last_used_at ASC", map: item)
     }
 
     public func checkpoint() {
