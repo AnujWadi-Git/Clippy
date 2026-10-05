@@ -28,6 +28,10 @@ public final class SettingsManager: @unchecked Sendable {
     public var preferLocalAI: Bool { didSet { defaults.set(preferLocalAI, forKey: "preferLocalAI") } }
     public var allowCloudProcessing: Bool { didSet { defaults.set(allowCloudProcessing, forKey: "allowCloudProcessing") } }
     public var cloudProvider: String { didSet { defaults.set(cloudProvider, forKey: "cloudProvider") } }
+    public var cloudModel: String { didSet { defaults.set(cloudModel, forKey: "cloudModel") } }
+    public var semanticSearch: Bool { didSet { defaults.set(semanticSearch, forKey: "semanticSearch") } }
+    public var pinSuggestions: Bool { didSet { defaults.set(pinSuggestions, forKey: "pinSuggestions") } }
+    public var dismissedPinSuggestions: [String] { didSet { defaults.set(dismissedPinSuggestions, forKey: "dismissedPinSuggestions") } }
 
     @ObservationIgnored public var onRetentionChange: ((RetentionPolicy) -> Void)?
 
@@ -51,10 +55,15 @@ public final class SettingsManager: @unchecked Sendable {
         hotkeyKeyCode = i("hotkeyKeyCode", Self.defaultHotkey.keyCode)
         hotkeyModifiers = i("hotkeyModifiers", Self.defaultHotkey.modifiers)
         hasOnboarded = b("hasOnboarded", false)
-        aiEnabled = b("aiEnabled", false)
+        // On-device AI is private and on by default; CLOUD processing stays off until the user opts in.
+        aiEnabled = b("aiEnabled", true)
         preferLocalAI = b("preferLocalAI", true)
         allowCloudProcessing = b("allowCloudProcessing", false)
         cloudProvider = defaults.string(forKey: "cloudProvider") ?? "anthropic"
+        cloudModel = defaults.string(forKey: "cloudModel") ?? "claude-haiku-4-5-20251001"
+        semanticSearch = b("semanticSearch", true)
+        pinSuggestions = b("pinSuggestions", true)
+        dismissedPinSuggestions = defaults.stringArray(forKey: "dismissedPinSuggestions") ?? []
     }
 
     public var maxDiskBytes: Int { maxDiskMB * 1_048_576 }

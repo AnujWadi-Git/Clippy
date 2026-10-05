@@ -33,7 +33,8 @@ func storageChecks() {
         let e = try Env()
         expect(e.settings.retention == .hour24, "default retention 24h")
         expect(e.settings.protectSensitive, "protect on by default")
-        expect(!e.settings.allowCloudProcessing && !e.settings.aiEnabled, "cloud/AI off by default")
+        expect(!e.settings.allowCloudProcessing, "cloud off by default")
+        expect(e.settings.preferLocalAI, "local preferred")
         expect(RetentionPolicy.hour24.interval == 86_400)
     }
 
