@@ -32,6 +32,13 @@ func richTextChecks() {
         _ = noKey.copy("no encryption key available", rich: ["public.rtf": rtf])
         expect(noKey.repo.snapshot()[0].richPath == nil, "never stored unencrypted")
     }
+    suite("Secrets hidden in formatting are not stored") {
+        let e = try Env(crypto: box)
+        let hidden = Data("<b>Visible words</b><span style=\"display:none\">AKIAIOSFODNN7EXAMPLE</span>".utf8)
+        _ = e.copy("Visible words here", rich: ["public.html": hidden])
+        expect(e.repo.snapshot().count == 1 && e.repo.snapshot()[0].richPath == nil, "plain text kept, formatting discarded")
+    }
+
     suite("Rich text lifecycle") {
         let e = try Env(crypto: box)
         _ = e.copy("same words twice")                              // plain first

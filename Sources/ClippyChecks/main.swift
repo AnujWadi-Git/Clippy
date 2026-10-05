@@ -1,5 +1,6 @@
 import Foundation
 
+if CommandLine.arguments.contains("--perf") { perfChecks(); exit(0) }
 if CommandLine.arguments.contains("--eval") { runRetrievalEval(); exit(0) }
 sensitiveChecks()
 processingChecks()

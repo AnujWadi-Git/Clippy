@@ -260,8 +260,16 @@ final class PanelViewModel {
         DispatchQueue.main.async {
             let a = NSAlert()
             a.messageText = "Run this command in Terminal?"
-            a.informativeText = String(command.prefix(600))
+            a.informativeText = "This is the complete command that will run."
             a.alertStyle = .warning
+            // Show EVERYTHING that will execute (never a truncated preview).
+            let tv = NSTextView(frame: NSRect(x: 0, y: 0, width: 460, height: 150))
+            tv.string = command
+            tv.isEditable = false
+            tv.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
+            let scroll = NSScrollView(frame: tv.frame)
+            scroll.documentView = tv; scroll.hasVerticalScroller = true; scroll.borderType = .bezelBorder
+            a.accessoryView = scroll
             a.addButton(withTitle: "Run"); a.addButton(withTitle: "Cancel")
             NSApp.activate(ignoringOtherApps: true)
             guard a.runModal() == .alertFirstButtonReturn else { return }

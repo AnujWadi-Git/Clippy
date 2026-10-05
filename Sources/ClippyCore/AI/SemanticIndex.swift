@@ -8,6 +8,7 @@ public final class SemanticIndex: @unchecked Sendable {
     private let lock = NSLock()
     private var vectors: [String: [Float]] = [:]
     private var persisted = Set<String>()
+    private var unembeddable = Set<String>()   // don't retry items the model can't embed on every pass
 
     public init(database: ClipboardDatabase, provider: EmbeddingProvider?) {
         db = database; self.provider = provider
@@ -33,7 +34,7 @@ public final class SemanticIndex: @unchecked Sendable {
 
         lock.lock()
         let gone = vectors.keys.filter { !alive.contains($0) }
-        for id in gone { vectors[id] = nil; persisted.remove(id) }
+        for id in gone { vectors[id] = nil; persisted.remove(id); unembeddable.remove(id) }
         let toUnpersist = persisted.intersection(pinned)
         persisted.subtract(toUnpersist)
         lock.unlock()
@@ -41,7 +42,8 @@ public final class SemanticIndex: @unchecked Sendable {
 
         var done = 0
         for item in items where done < limit {
-            lock.lock(); let has = vectors[item.id] != nil; let isPersisted = persisted.contains(item.id); lock.unlock()
+            lock.lock(); let has = vectors[item.id] != nil; let isPersisted = persisted.contains(item.id); let skip = unembeddable.contains(item.id); lock.unlock()
+            if skip { continue }
             if has {
                 if !isPersisted, !item.pinned, let v = vector(for: item.id) {   // e.g. just unpinned
                     try? db.saveEmbedding(id: item.id, model: provider.modelID, vector: v)
@@ -49,7 +51,8 @@ public final class SemanticIndex: @unchecked Sendable {
                 }
                 continue
             }
-            guard let text = EmbeddingText.describe(item), let v = provider.embed(text) else { continue }
+            guard let text = EmbeddingText.describe(item) else { continue }
+            guard let v = provider.embed(text) else { lock.lock(); unembeddable.insert(item.id); lock.unlock(); continue }
             lock.lock(); vectors[item.id] = v; lock.unlock()
             if !item.pinned {
                 try? db.saveEmbedding(id: item.id, model: provider.modelID, vector: v)

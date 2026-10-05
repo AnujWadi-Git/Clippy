@@ -147,7 +147,8 @@ public struct SensitiveContentDetector: Sendable {
     private static func isOTP(_ s: String, dropBare: Bool) -> Bool {
         guard dropBare, s.count <= 9 else { return false }
         let stripped = s.replacingOccurrences(of: "-", with: "").replacingOccurrences(of: " ", with: "")
-        return (4...8).contains(stripped.count) && stripped.allSatisfy(\.isASCII) && stripped.allSatisfy(\.isNumber)
+        // 6–8 digits only: 4–5 digit numbers (years, ports, ZIP codes, ids) are far more often ordinary copies than codes.
+        return (6...8).contains(stripped.count) && stripped.allSatisfy(\.isASCII) && stripped.allSatisfy(\.isNumber)
     }
 
     // MARK: Seed phrases (heuristic; a bundled BIP-39 list is a planned upgrade)

@@ -10,6 +10,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     private let historyMenu = NSMenu(), pinnedMenu = NSMenu()
     private var pauseItem: NSMenuItem!
     private var skipItem: NSMenuItem!
+    private var protectedItem: NSMenuItem!
 
     init(context: AppContext, openPanel: @escaping () -> Void, openSettings: @escaping () -> Void) {
         ctx = context; self.openPanel = openPanel; self.openSettings = openSettings
@@ -34,6 +35,8 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         menu.addItem(skipItem)
         pauseItem = target(NSMenuItem(title: "Pause Clipboard Monitoring", action: #selector(pauseAction), keyEquivalent: ""))
         menu.addItem(pauseItem)
+        protectedItem = NSMenuItem(title: "", action: nil, keyEquivalent: ""); protectedItem.isEnabled = false
+        menu.addItem(protectedItem)
         menu.addItem(.separator())
         menu.addItem(target(NSMenuItem(title: "Settings…", action: #selector(settingsAction), keyEquivalent: ",")))
         menu.addItem(NSMenuItem(title: "Quit Clippy", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
@@ -48,6 +51,8 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         pauseItem.title = paused ? "Resume Clipboard Monitoring" : "Pause Clipboard Monitoring"
         item.button?.appearsDisabled = paused
         skipItem.state = ctx.monitor.skipNextCopy ? .on : .off
+        let n = ctx.protectedTodayCount
+        protectedItem.title = n == 0 ? "🔒 Nothing sensitive copied today" : "🔒 Kept \(n) sensitive cop\(n == 1 ? "y" : "ies") out of history today"
         let snap = ctx.repository.snapshot()
         fill(historyMenu, with: Array(snap.filter { !$0.pinned }.prefix(10)), empty: "Nothing copied yet")
         fill(pinnedMenu, with: snap.filter(\.pinned), empty: "No pinned items")

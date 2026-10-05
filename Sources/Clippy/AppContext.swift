@@ -23,6 +23,9 @@ final class AppContext {
     private var indexWork: DispatchWorkItem?
     let hotkey = GlobalHotkeyManager()
     private(set) var storageError: String?
+    /// How many copies the privacy filter kept out of history today (shown in the menu so protection isn't invisible).
+    private(set) var protectedToday = 0
+    private var protectedDay = Calendar.current.startOfDay(for: Date())
 
     private init() {
         let fm = FileManager.default
@@ -78,10 +81,24 @@ final class AppContext {
         }
     }
 
+    private func noteProtected() {
+        let today = Calendar.current.startOfDay(for: Date())
+        if today != protectedDay { protectedDay = today; protectedToday = 0 }
+        protectedToday += 1
+    }
+
+    var protectedTodayCount: Int { Calendar.current.startOfDay(for: Date()) == protectedDay ? protectedToday : 0 }
+
     func start() {
         applyAppearance()
         // Log outcome kinds only, never clipboard content.
-        monitor.onOutcome = { outcome in NSLog("Clippy capture: \(outcome)") }
+        monitor.onOutcome = { [weak self] outcome in
+            NSLog("Clippy capture: \(outcome)")
+            switch outcome {
+            case .droppedSensitive, .heldInMemory: DispatchQueue.main.async { self?.noteProtected() }
+            default: break
+            }
+        }
         monitor.start()
         cleanup.start()
         registerHotkey()

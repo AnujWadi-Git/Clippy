@@ -1,6 +1,23 @@
 import SwiftUI
 import ClippyCore
 
+/// Small cached icons for the app a clip came from.
+@MainActor
+enum AppIcons {
+    private static let cache = NSCache<NSString, NSImage>()
+    private static var missing = Set<String>()
+
+    static func icon(for bundle: String?) -> NSImage? {
+        guard let bundle, !missing.contains(bundle) else { return nil }
+        if let hit = cache.object(forKey: bundle as NSString) { return hit }
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundle) else { missing.insert(bundle); return nil }
+        let img = NSWorkspace.shared.icon(forFile: url.path)
+        img.size = NSSize(width: 14, height: 14)
+        cache.setObject(img, forKey: bundle as NSString)
+        return img
+    }
+}
+
 enum ClipStyle {
     static func symbol(_ i: ClipboardItem) -> String {
         switch i.category {
@@ -63,6 +80,7 @@ struct ItemRow: View {
                     .help("Similar items — press → to expand")
             }
             if item.pinned { Image(systemName: "pin.fill").font(.system(size: 9)).foregroundStyle(.orange) }
+            if let icon = AppIcons.icon(for: item.sourceBundle) { Image(nsImage: icon).resizable().frame(width: 13, height: 13).opacity(0.85) }
             if let n = shortcutIndex, selected { Text("⌘\(n)").font(.system(size: 10, design: .rounded)).foregroundStyle(.tertiary) }
             else { Text(ClipStyle.relative(item.lastUsedAt)).font(.system(size: 11)).foregroundStyle(.tertiary) }
         }

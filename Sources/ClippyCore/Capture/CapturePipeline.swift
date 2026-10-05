@@ -111,9 +111,22 @@ public final class CapturePipeline: @unchecked Sendable {
         }
     }
 
+    /// HTML/RTF can carry text that is not in the plain-text flavour (hidden elements, attributes). Scan it too; if it
+    /// trips the detector we keep only the plain text.
+    private func richLooksSensitive(_ rich: [String: Data]) -> Bool {
+        guard settings.protectSensitive else { return false }
+        let detector = SensitiveContentDetector(ignoredBundles: settings.effectiveIgnoredBundles, dropBareNumericCodes: false)
+        for (_, d) in rich where d.count <= RichContent.maxBytes {
+            let s = String(decoding: d, as: UTF8.self)
+            if detector.check(text: s) != nil { return true }
+        }
+        return false
+    }
+
     /// Stores formatting encrypted on disk. Skipped when no key is available (plain text still works).
     private func attachRich(_ rich: [String: Data], to draft: ClipboardItem) -> ClipboardItem {
-        guard settings.keepFormatting, !rich.isEmpty, repo.blobs.canSeal, let blob = RichContent.encode(rich),
+        guard settings.keepFormatting, !rich.isEmpty, repo.blobs.canSeal,
+              !richLooksSensitive(rich), let blob = RichContent.encode(rich),
               let name = try? repo.blobs.writeSealed(blob) else { return draft }
         var d = draft
         d.richPath = name

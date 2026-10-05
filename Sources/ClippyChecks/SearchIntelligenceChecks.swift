@@ -136,6 +136,15 @@ func searchIntelligenceChecks() {
         expect(ms.search("zebra spaceship", items: corpus, index: idx, now: now).hits.isEmpty, "unrelated query still empty with embeddings")
     }
 
+    suite("Strong evidence is not score-based") {
+        let ms = MemorySearch()
+        var pinnedLink = corpus[1]; pinnedLink.pinned = true
+        let r = ms.search("link", items: [pinnedLink], index: nil, now: now)
+        expect(r.hits.count == 1 && !r.hits[0].strong, "category-only match (even pinned+recent) is not strong")
+        let r2 = ms.search("github link", items: corpus, index: nil, now: now)
+        expect(r2.hits.first?.strong == true, "keyword + type match is strong")
+    }
+
     suite("Embedding model is released when idle") {
         let p = LocalEmbeddingProvider(idleRelease: 0.3)
         guard p.isAvailable else { print("  skipped"); return }

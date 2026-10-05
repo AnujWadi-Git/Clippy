@@ -21,6 +21,7 @@ struct SettingsView: View {
 @MainActor private final class GeneralModel: ObservableObject {
     @Published var login = LoginItem.isEnabled
     @Published var axTrusted = PasteManager.hasAccessibility
+    @Published var pasteboard = PasteboardAccess.current
 }
 
 private struct GeneralTab: View {
@@ -45,6 +46,19 @@ private struct GeneralTab: View {
                     Button("Grant…") { PasteManager.requestAccessibility() }
                 }
                 Button("Recheck") { m.axTrusted = PasteManager.hasAccessibility }
+            }
+            HStack {
+                Image(systemName: m.pasteboard == .denied ? "xmark.octagon.fill" : (m.pasteboard == .ask ? "questionmark.circle.fill" : "checkmark.circle.fill"))
+                    .foregroundStyle(m.pasteboard == .denied ? .red : (m.pasteboard == .ask ? .orange : .green))
+                Text(m.pasteboard == .denied ? "Clipboard access is blocked — Clippy can’t record anything"
+                     : (m.pasteboard == .ask ? "macOS will ask before Clippy reads the clipboard — choose Allow" : "Clipboard access allowed"))
+                Spacer()
+                if m.pasteboard != .allowed {
+                    Button("Open Settings…") {
+                        NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy")!)
+                    }
+                }
+                Button("Recheck") { m.pasteboard = PasteboardAccess.current }
             }
             Text("Without Accessibility, Clippy still copies the item — press ⌘V yourself. macOS offers no other way to insert text into another app.")
                 .font(.caption).foregroundStyle(.secondary)

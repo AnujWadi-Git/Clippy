@@ -83,3 +83,21 @@ public final class ClipboardMonitor: @unchecked Sendable {
         return nil
     }
 }
+
+/// macOS 15.4+ lets users control whether an app may read the pasteboard programmatically.
+public enum PasteboardAccess: Sendable {
+    case allowed, ask, denied, unknown
+
+    public static var current: PasteboardAccess {
+        if #available(macOS 15.4, *) {
+            switch NSPasteboard.general.accessBehavior {
+            case .alwaysAllow: return .allowed
+            case .ask: return .ask
+            case .alwaysDeny: return .denied
+            case .default: return .allowed
+            @unknown default: return .unknown
+            }
+        }
+        return .allowed   // earlier macOS: no per-app control
+    }
+}

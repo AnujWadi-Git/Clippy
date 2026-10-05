@@ -22,6 +22,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         if !ctx.registerHotkey() { Toaster.shared.show("Clippy: couldn't register the global shortcut — choose another in Settings") }
         if let err = ctx.storageError { NSLog("Clippy storage error: \(err)") }
+        if PasteboardAccess.current == .denied {
+            Toaster.shared.show("Clippy can’t read the clipboard — allow it under Privacy & Security → Paste from Other Apps")
+        }
         if !ctx.settings.hasOnboarded { showWelcome() }
         // Dev aid: `Clippy --show-panel` opens the panel immediately (used for screenshots).
         if CommandLine.arguments.contains("--show-panel") { windowController.show() }

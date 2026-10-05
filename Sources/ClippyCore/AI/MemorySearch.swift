@@ -4,7 +4,12 @@ public struct MemoryHit: Sendable {
     public let item: ClipboardItem
     public let score: Double
     public let why: String
-    public init(item: ClipboardItem, score: Double, why: String) { self.item = item; self.score = score; self.why = why }
+    /// Deterministic evidence: a typed keyword plus a type match, or two typed keywords. (Scores also include recency/pin
+    /// bonuses, so they are not a reliable measure of evidence.)
+    public let strong: Bool
+    public init(item: ClipboardItem, score: Double, why: String, strong: Bool = false) {
+        self.item = item; self.score = score; self.why = why; self.strong = strong
+    }
 }
 
 public struct MemoryResult: Sendable {
@@ -81,7 +86,7 @@ public struct MemorySearch: Sendable {
 
             score += max(0, 1 - now.timeIntervalSince(item.lastUsedAt) / 86_400) * 0.4
             if item.pinned { score += 0.3 }
-            hits.append(MemoryHit(item: item, score: score, why: reasons.joined(separator: ", ")))
+            hits.append(MemoryHit(item: item, score: score, why: reasons.joined(separator: ", "), strong: (catMatch && kwHits > 0) || kwHits >= 2))
         }
         hits.sort { $0.score != $1.score ? $0.score > $1.score : $0.item.lastUsedAt > $1.item.lastUsedAt }
         return MemoryResult(hits: Array(hits.prefix(limit)), intent: intent)
@@ -129,7 +134,7 @@ public struct MemorySearch: Sendable {
         case .balanced:
             // Model picks first; only STRONG deterministic evidence (typed keyword/category hit) survives beside them.
             let ids = Set(chosen.map(\.item.id))
-            return MemoryResult(hits: chosen + base.hits.filter { !ids.contains($0.item.id) && $0.score >= 3.5 }, intent: base.intent)
+            return MemoryResult(hits: chosen + base.hits.filter { !ids.contains($0.item.id) && $0.strong }, intent: base.intent)
         case .soft:
             let ids = Set(chosen.map(\.item.id))
             return MemoryResult(hits: chosen + base.hits.filter { !ids.contains($0.item.id) }, intent: base.intent)

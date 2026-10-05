@@ -48,6 +48,7 @@ func sensitiveChecks() {
         safe("the quick brown fox jumps over the lazy dog and runs far away from here today")
         safe("user@example.com")
         safe("12345678901")
+        for n in ["8080", "2026", "12345", "94105"] { safe(n) }   // ports, years, ZIPs are not one-time codes
         safe("{\"name\": \"clippy\", \"version\": \"0.1.0\"}")
     }
     suite("SensitiveContentDetector metadata") {
