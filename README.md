@@ -38,14 +38,20 @@ panel with keyboard navigation, menu bar, Settings, Launch at Login, ignored app
 - **⌘K actions** — per-type: JSON pretty/minify/validate, link domain / strip tracking, run command in Terminal (confirmed),
   compose email, rewrite / shorten / expand / fix grammar / translate / summarize / explain / convert code (AI).
   Results become a new clipboard item, copied and ready to paste.
+- **Assisted search** — after instant results, the on-device model refines them (expands your wording, then picks among real
+  candidates). Measured on a 40-query set: top-1 70% → 80%, unrelated queries returning junk 1/6 → 0/6. See [docs/SEARCH-EVAL.md](docs/SEARCH-EVAL.md).
+- **OCR** — text inside copied images/screenshots is searchable; a screenshot of a secret is dropped like copied text would be.
+- **Merge-paste** — ⌘E marks items, ↩ pastes them together as one block.
+- **Skip next copy** — ⌥⇧V (or the menu bar) makes your next copy invisible to Clippy.
+- **Backup** — export/import pinned items or everything (plain JSON; imports go through the privacy filters).
 - **Pin suggestions** (copied ≥5×), **similar-item grouping** (`+N`, → to expand), **junk cleanup** (can only delete sooner, never extend).
 - **Cloud AI is off by default.** If you enable it and add a key (stored in Keychain), only the single item you act on is
   sent, and only when on-device AI is unavailable (or you turn off “Prefer on-device”). Sensitive items are never sent anywhere.
 
 ### Verification
 ```bash
-swift run ClippyChecks            # 260 checks on the core (add --live-ai to exercise the on-device model)
-swift build && CLIPPY_DATA_DIR=/tmp/cs CLIPPY_DEFAULTS_SUITE=cs .build/debug/Clippy --selftest   # 29 headless end-to-end checks
+swift run ClippyChecks            # 282 checks on the core (add --live-ai to exercise the on-device model)
+swift build && CLIPPY_DATA_DIR=/tmp/cs CLIPPY_DEFAULTS_SUITE=cs .build/debug/Clippy --selftest   # 32 headless end-to-end checks
 ```
 Live-verified: pasteboard capture, classification, dedupe, sensitive dropping, semantic queries, command mode, transforms, and a
 real on-device rewrite. **Not verified visually or interactively on a desktop:** panel appearance, the ⌥V hotkey, real keystrokes,

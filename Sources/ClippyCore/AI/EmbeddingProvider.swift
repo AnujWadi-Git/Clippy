@@ -9,20 +9,41 @@ public protocol EmbeddingProvider: Sendable {
 }
 
 /// Apple's on-device sentence embedding (NaturalLanguage). No network, no model download by us.
-public struct LocalEmbeddingProvider: EmbeddingProvider, @unchecked Sendable {
+/// The model is loaded on first use and RELEASED after `idleRelease` seconds without use, so an idle Clippy stays small.
+public final class LocalEmbeddingProvider: EmbeddingProvider, @unchecked Sendable {
     public let modelID = "nl-sentence-en-v1"
-    private let embedding: NLEmbedding?
+    private let lock = NSLock()
+    private var embedding: NLEmbedding?
+    private var releaseWork: DispatchWorkItem?
+    private let idleRelease: TimeInterval
+    private let queue = DispatchQueue(label: "clippy.embedding.release", qos: .utility)
 
-    public init() { embedding = NLEmbedding.sentenceEmbedding(for: .english) }
-    public var isAvailable: Bool { embedding != nil }
+    public init(idleRelease: TimeInterval = 60) { self.idleRelease = idleRelease }
+
+    public var isAvailable: Bool { NLEmbedding.currentSentenceEmbeddingRevision(for: .english) > 0 }
+    public var isLoaded: Bool { lock.lock(); defer { lock.unlock() }; return embedding != nil }
 
     public func embed(_ text: String) -> [Float]? {
-        guard let e = embedding, let v = e.vector(for: String(text.prefix(1000))) else { return nil }
+        lock.lock(); defer { lock.unlock() }
+        if embedding == nil { embedding = NLEmbedding.sentenceEmbedding(for: .english) }
+        guard let e = embedding else { return nil }
+        scheduleReleaseLocked()
+        guard let v = e.vector(for: String(text.prefix(1000))) else { return nil }
         var f = v.map { Float($0) }
         let norm = sqrt(f.reduce(0) { $0 + $1 * $1 })
         guard norm > 0 else { return nil }
         for i in f.indices { f[i] /= norm }
         return f
+    }
+
+    private func scheduleReleaseLocked() {
+        releaseWork?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.lock.lock(); self.embedding = nil; self.lock.unlock()
+        }
+        releaseWork = work
+        queue.asyncAfter(deadline: .now() + idleRelease, execute: work)
     }
 }
 

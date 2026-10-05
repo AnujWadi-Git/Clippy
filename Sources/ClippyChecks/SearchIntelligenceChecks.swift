@@ -136,6 +136,16 @@ func searchIntelligenceChecks() {
         expect(ms.search("zebra spaceship", items: corpus, index: idx, now: now).hits.isEmpty, "unrelated query still empty with embeddings")
     }
 
+    suite("Embedding model is released when idle") {
+        let p = LocalEmbeddingProvider(idleRelease: 0.3)
+        guard p.isAvailable else { print("  skipped"); return }
+        expect(!p.isLoaded, "not loaded until used")
+        expect(p.embed("hello world") != nil && p.isLoaded)
+        Thread.sleep(forTimeInterval: 0.8)
+        expect(!p.isLoaded, "released after idle")
+        expect(p.embed("hello again") != nil, "reloads transparently")
+    }
+
     suite("MemorySearch with real on-device embeddings") {
         let real = LocalEmbeddingProvider()
         guard real.isAvailable else { print("  skipped: NLEmbedding unavailable"); return }
