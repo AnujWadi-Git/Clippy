@@ -42,6 +42,8 @@ panel with keyboard navigation, menu bar, Settings, Launch at Login, ignored app
   candidates). Measured on a 40-query set: top-1 70% → 80%, unrelated queries returning junk 1/6 → 0/6. See [docs/SEARCH-EVAL.md](docs/SEARCH-EVAL.md).
 - **OCR** — text inside copied images/screenshots is searchable; a screenshot of a secret is dropped like copied text would be.
 - **Merge-paste** — ⌘E marks items, ↩ pastes them together as one block.
+- **Formatting kept** — bold, links and styles survive paste (stored encrypted); ⌥↩ pastes plain text.
+- **Visible protection** — the menu bar shows how many sensitive copies were kept out of history today; Settings shows whether macOS lets Clippy read the clipboard.
 - **Skip next copy** — ⌥⇧V (or the menu bar) makes your next copy invisible to Clippy.
 - **Backup** — export/import pinned items or everything (plain JSON; imports go through the privacy filters).
 - **Pin suggestions** (copied ≥5×), **similar-item grouping** (`+N`, → to expand), **junk cleanup** (can only delete sooner, never extend).
@@ -50,8 +52,8 @@ panel with keyboard navigation, menu bar, Settings, Launch at Login, ignored app
 
 ### Verification
 ```bash
-swift run ClippyChecks            # 282 checks on the core (add --live-ai to exercise the on-device model)
-swift build && CLIPPY_DATA_DIR=/tmp/cs CLIPPY_DEFAULTS_SUITE=cs .build/debug/Clippy --selftest   # 32 headless end-to-end checks
+swift run ClippyChecks            # 302 checks on the core (add --live-ai to exercise the on-device model)
+swift build && CLIPPY_DATA_DIR=/tmp/cs CLIPPY_DEFAULTS_SUITE=cs .build/debug/Clippy --selftest   # 35 headless end-to-end checks
 ```
 Live-verified: pasteboard capture, classification, dedupe, sensitive dropping, semantic queries, command mode, transforms, and a
 real on-device rewrite. **Not verified visually or interactively on a desktop:** panel appearance, the ⌥V hotkey, real keystrokes,
