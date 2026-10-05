@@ -11,6 +11,7 @@ let package = Package(
     targets: [
         .target(name: "ClippyCore", linkerSettings: [.linkedLibrary("sqlite3")]),
         .executableTarget(name: "Clippy", dependencies: ["ClippyCore"]),
-        .testTarget(name: "ClippyCoreTests", dependencies: ["ClippyCore"]),
+        // Plain executable test runner: XCTest/swift-testing need full Xcode, this runs anywhere.
+        .executableTarget(name: "ClippyChecks", dependencies: ["ClippyCore"]),
     ]
 )
