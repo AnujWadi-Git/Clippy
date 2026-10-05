@@ -4,8 +4,8 @@ public struct MemoryHit: Sendable {
     public let item: ClipboardItem
     public let score: Double
     public let why: String
-    /// Deterministic evidence: a typed keyword plus a type match, or two typed keywords. (Scores also include recency/pin
-    /// bonuses, so they are not a reliable measure of evidence.)
+    /// Enough accumulated evidence (type match, typed/related keywords, similarity) WITHOUT counting recency or pin bonuses,
+    /// which only break ties.
     public let strong: Bool
     public init(item: ClipboardItem, score: Double, why: String, strong: Bool = false) {
         self.item = item; self.score = score; self.why = why; self.strong = strong
@@ -84,9 +84,10 @@ public struct MemorySearch: Sendable {
             // With keywords present, a category-only match is weaker than a keyword match but still admitted.
             if !intent.keywords.isEmpty && kwHits == 0 && extraHits == 0 && sem < semanticMinimum && !catMatch { continue }
 
+            let evidence = score      // before recency/pin bonuses, which are tie-breakers and not evidence
             score += max(0, 1 - now.timeIntervalSince(item.lastUsedAt) / 86_400) * 0.4
             if item.pinned { score += 0.3 }
-            hits.append(MemoryHit(item: item, score: score, why: reasons.joined(separator: ", "), strong: (catMatch && kwHits > 0) || kwHits >= 2))
+            hits.append(MemoryHit(item: item, score: score, why: reasons.joined(separator: ", "), strong: evidence >= 3.5))
         }
         hits.sort { $0.score != $1.score ? $0.score > $1.score : $0.item.lastUsedAt > $1.item.lastUsedAt }
         return MemoryResult(hits: Array(hits.prefix(limit)), intent: intent)

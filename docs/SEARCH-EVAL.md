@@ -3,7 +3,7 @@
 Run: `swift run ClippyChecks --eval` (add `--llm` for the on-device-model stages, `--misses` to list failures).
 Data: `Sources/ClippyChecks/EvalData.swift` — 40 realistic clips (commands, URLs, code, errors, JSON, addresses, phones,
 emails, notes), 40 *paraphrased* queries ("start my containers" for `docker compose up -d`), and 6 unrelated queries that
-must return nothing. Measured on Apple silicon, macOS 26+, October 2026. The LLM stages are live and non-deterministic (±1–2 queries).
+must return nothing. Measured on Apple silicon, macOS 26+, October 2026. The LLM stages are live and non-deterministic: re-running the *identical* build gave 75%/80% and 82%/88% (top-1/top-3), so differences smaller than ~8 points between runs are noise.
 
 | Pipeline | Top-1 | Top-3 | MRR | Unrelated queries returning junk |
 |---|---|---|---|---|
@@ -15,7 +15,7 @@ must return nothing. Measured on Apple silicon, macOS 26+, October 2026. The LLM
 | Hybrid + contextual embeddings | 68% | 75% | 0.73 | 6/6 |
 | Hybrid + on-device LLM expand + select (trust) | 78% | 78% | 0.78 | 0/6 |
 | Hybrid + on-device LLM expand + select (soft) | 75% | 88% | 0.80 | 6/6 |
-| **Shipped: hybrid + LLM expand + select (balanced)** | **80%** | **88%** | **0.82** | **0/6** |
+| **Shipped: hybrid + LLM expand + select (balanced)** — 4 runs | **75–82%** | **78–88%** | **0.76–0.85** | **0–1 of 6** |
 
 ## What we learned
 - Apple's embeddings alone are not good enough for terse clipboard items (≈1 in 4 correct). The contextual model did not help

@@ -39,7 +39,7 @@ panel with keyboard navigation, menu bar, Settings, Launch at Login, ignored app
   compose email, rewrite / shorten / expand / fix grammar / translate / summarize / explain / convert code (AI).
   Results become a new clipboard item, copied and ready to paste.
 - **Assisted search** — after instant results, the on-device model refines them (expands your wording, then picks among real
-  candidates). Measured on a 40-query set: top-1 70% → 80%, unrelated queries returning junk 1/6 → 0/6. See [docs/SEARCH-EVAL.md](docs/SEARCH-EVAL.md).
+  candidates). Measured on a 40-query set: top-1 70% → ~75–82%, top-3 78% → ~80–88% (live-model noise), unrelated queries returning junk ~0–1 of 6. See [docs/SEARCH-EVAL.md](docs/SEARCH-EVAL.md).
 - **OCR** — text inside copied images/screenshots is searchable; a screenshot of a secret is dropped like copied text would be.
 - **Merge-paste** — ⌘E marks items, ↩ pastes them together as one block.
 - **Formatting kept** — bold, links and styles survive paste (stored encrypted); ⌥↩ pastes plain text.
