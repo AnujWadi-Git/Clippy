@@ -247,3 +247,12 @@ Each step ends green (`swift build && swift test`) and is committed + pushed.
 ## 10. Verification caveat
 
 Everything pure (detector, DB, retention, search, classifier) is covered by unit tests I can run here. The GUI parts (hotkey, non-activating panel, synthesized paste, permission prompts) need a human on a real desktop session to confirm; I'll mark what I did and did not verify at each step.
+
+## 11. AI implementation notes (as built)
+
+- **Local first.** Apple’s on-device model (FoundationModels) for text tasks; `NLEmbedding` sentence vectors for similarity. Cloud sits behind a `CloudProvider` protocol (Anthropic implemented) and is gated by *Enable AI* + *Allow cloud processing* + a Keychain key, re-checked on every call.
+- **Embeddings measured, not assumed.** Raw `NLEmbedding` ranked only ~4/8 test queries correctly (chatty text outranked terse commands). Embedding a *category-prefixed* description (“terminal command: …”, URLs split into words) helped materially, and hybrid retrieval (intent + keywords + embeddings) got 5/5 on the test set with 0 hits for unrelated queries. Embedding-only admission needs cosine ≥ 0.62 to avoid false matches.
+- **No hallucinated items.** Retrieval is deterministic; the LLM may only re-order the top candidates by number. “No matching clipboard item found.” is produced by the app.
+- **Pinned items.** Their vectors are kept in memory only (never written to disk), consistent with encrypting pinned content at rest.
+- **Guarding AI input.** `AIGuard` re-runs the sensitive detector right before any model call; held-sensitive items are never embedded or sent.
+- **Retention invariant.** Junk cleanup, pin suggestions and AI results cannot extend `expires_at`; a re-copy by the user is the only thing that starts a new window.
