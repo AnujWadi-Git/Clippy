@@ -1,8 +1,10 @@
 import Foundation
 
+if CommandLine.arguments.contains("--eval") { runRetrievalEval(); exit(0) }
 sensitiveChecks()
 processingChecks()
 storageChecks()
+ocrChecks()
 aiChecks()
 intelligenceChecks()
 commandModeChecks()

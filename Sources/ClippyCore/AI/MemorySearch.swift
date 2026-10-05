@@ -25,7 +25,7 @@ public struct MemorySearch: Sendable {
 
     public init() {}
 
-    public func search(_ query: String, items: [ClipboardItem], index: SemanticIndex?, now: Date = Date(), limit: Int = 30) -> MemoryResult {
+    public func search(_ query: String, items: [ClipboardItem], index: SemanticIndex?, now: Date = Date(), limit: Int = 30, extraKeywords: [String] = []) -> MemoryResult {
         let intent = QueryIntent.parse(query, now: now)
         let pool = items.filter { !$0.isHeldSensitive }
         var queryVec: [Float]?
@@ -53,6 +53,13 @@ public struct MemorySearch: Sendable {
                 if preview.contains(stem) { score += 2.5; kwHits += 1 }
                 else if body.contains(stem) { score += 1.2; kwHits += 1 }
             }
+            // Model-suggested related words: weaker evidence than words the user typed, but real signal.
+            var extraHits = 0
+            for k in extraKeywords where k.count >= 2 {
+                if preview.contains(k) { score += 1.2; extraHits += 1 }
+                else if body.contains(k) { score += 0.6; extraHits += 1 }
+            }
+            if extraHits > 0 { reasons.append("related terms") }
             if kwHits > 0 { reasons.append("matches “\(intent.keywords.prefix(3).joined(separator: " "))”") }
             for l in intent.languageHints {
                 if body.contains(l) { score += 1.5 }
@@ -67,10 +74,10 @@ public struct MemorySearch: Sendable {
             }
 
             // Admission: some real signal, or a pure time/“what did I copy” question.
-            let hasSignal = catMatch || kwHits > 0 || sem >= semanticMinimum
+            let hasSignal = catMatch || kwHits > 0 || extraHits > 0 || sem >= semanticMinimum
             if intent.hasConstraints && !(intent.categories.isEmpty && intent.keywords.isEmpty && intent.kinds.isEmpty) && !hasSignal { continue }
             // With keywords present, a category-only match is weaker than a keyword match but still admitted.
-            if !intent.keywords.isEmpty && kwHits == 0 && sem < semanticMinimum && !catMatch { continue }
+            if !intent.keywords.isEmpty && kwHits == 0 && extraHits == 0 && sem < semanticMinimum && !catMatch { continue }
 
             score += max(0, 1 - now.timeIntervalSince(item.lastUsedAt) / 86_400) * 0.4
             if item.pinned { score += 0.3 }
@@ -95,5 +102,33 @@ public struct MemorySearch: Sendable {
         let promoted = Set(order.map(\.item.id))
         let rest = result.hits.filter { !promoted.contains($0.item.id) }
         return MemoryResult(hits: order + rest, intent: result.intent)
+    }
+
+    public enum AssistMode: Sendable { case trust, soft }
+
+    /// Full pipeline: model-expanded keywords → hybrid retrieval → model picks among a candidate pool.
+    /// `trust`: the model's pick (or NONE) is final. `soft`: its picks go first, the rest of the hybrid hits follow.
+    public func assisted(_ query: String, items: [ClipboardItem], index: SemanticIndex?, assistant: SearchAssistant,
+                         mode: AssistMode = .trust, now: Date = Date(), poolSize: Int = 20) async -> MemoryResult {
+        let expansion = await assistant.expand(query)
+        let base = search(query, items: items, index: index, now: now, extraKeywords: expansion)
+        var pool = Array(base.hits.prefix(poolSize))
+        // If retrieval found little, let embeddings contribute nearest neighbours as candidates for the model to judge.
+        if pool.count < poolSize, let index, index.isAvailable, let qv = index.embedQuery(query) {
+            let have = Set(pool.map(\.item.id))
+            let extra = items.filter { !have.contains($0.id) && !$0.isHeldSensitive }
+                .compactMap { i -> (ClipboardItem, Float)? in index.vector(for: i.id).map { (i, cosine(qv, $0)) } }
+                .sorted { $0.1 > $1.1 }.prefix(poolSize - pool.count)
+            pool += extra.map { MemoryHit(item: $0.0, score: 0, why: "nearby meaning") }
+        }
+        guard let picked = await assistant.select(query: query, candidates: pool.map(\.item)) else { return base }
+        let byID = Dictionary(uniqueKeysWithValues: pool.map { ($0.item.id, $0) })
+        let chosen = picked.compactMap { byID[$0.id] }
+        switch mode {
+        case .trust: return MemoryResult(hits: chosen, intent: base.intent)
+        case .soft:
+            let ids = Set(chosen.map(\.item.id))
+            return MemoryResult(hits: chosen + base.hits.filter { !ids.contains($0.item.id) }, intent: base.intent)
+        }
     }
 }

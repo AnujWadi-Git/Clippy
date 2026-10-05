@@ -30,7 +30,8 @@ public enum EmbeddingText {
     /// What we actually embed. Prefixing a category label measurably improves ranking of terse items
     /// like commands and URLs (see docs/DESIGN.md → AI notes); URLs are split into words.
     public static func describe(_ item: ClipboardItem) -> String? {
-        guard item.kind == .text || item.kind == .url, let text = item.text, !item.isHeldSensitive else { return nil }
+        guard let text = item.text, !item.isHeldSensitive, [.text, .url, .image].contains(item.kind) else { return nil }
+        if item.kind == .image { return "text in image: \(String(text.prefix(500)))" }
         let label: String
         switch item.category {
         case .command: label = "terminal command"
@@ -57,4 +58,39 @@ public func cosine(_ a: [Float], _ b: [Float]) -> Float {
     var d: Float = 0
     for i in a.indices { d += a[i] * b[i] }
     return d   // vectors are pre-normalised
+}
+
+/// Apple's contextual (transformer) text embedding, mean-pooled over token vectors. Needs the on-device
+/// language assets; returns nil from `init` if they aren't present (we never trigger a download ourselves).
+public final class ContextualEmbeddingProvider: EmbeddingProvider, @unchecked Sendable {
+    public let modelID: String
+    private let embedding: NLContextualEmbedding
+    private let lock = NSLock()
+
+    public init?() {
+        guard let e = NLContextualEmbedding(language: .english), e.hasAvailableAssets else { return nil }
+        do { try e.load() } catch { return nil }
+        embedding = e
+        modelID = "nl-contextual-\(e.modelIdentifier)"
+    }
+
+    public func embed(_ text: String) -> [Float]? {
+        let t = String(text.prefix(1200))
+        guard !t.isEmpty else { return nil }
+        lock.lock(); defer { lock.unlock() }
+        guard let result = try? embedding.embeddingResult(for: t, language: .english) else { return nil }
+        var sum = [Double](repeating: 0, count: embedding.dimension)
+        var n = 0.0
+        result.enumerateTokenVectors(in: t.startIndex..<t.endIndex) { vec, _ in
+            for i in 0..<min(vec.count, sum.count) { sum[i] += vec[i] }
+            n += 1
+            return true
+        }
+        guard n > 0 else { return nil }
+        var f = sum.map { Float($0 / n) }
+        let norm = sqrt(f.reduce(0) { $0 + $1 * $1 })
+        guard norm > 0 else { return nil }
+        for i in f.indices { f[i] /= norm }
+        return f
+    }
 }

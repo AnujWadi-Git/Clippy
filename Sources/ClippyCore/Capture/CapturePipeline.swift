@@ -84,11 +84,24 @@ public final class CapturePipeline: @unchecked Sendable {
                 d.sourceBundle = clip.sourceBundle
                 return store(d)
             }
+            // OCR first: screenshots of secrets must be caught by the same detector as copied text.
+            var ocr: String?
+            if settings.ocrImages { ocr = ImageOCR.recognize(data) }
+            if settings.protectSensitive, let t = ocr, let v = detector.check(text: t) {
+                if settings.sensitiveMode == .memoryOnly {
+                    repo.addEphemeral(ClipboardItem(kind: .text, category: .other, contentHash: hash, text: nil,
+                                                    preview: "🔒 sensitive image", byteSize: data.count))
+                    return .heldInMemory(v.reason)
+                }
+                return .droppedSensitive(v.reason)
+            }
             do {
                 let name = try repo.blobs.write(data)
                 var thumb: String?
                 if let t = repo.blobs.makeThumbnail(from: data) { thumb = try? repo.blobs.write(t) }
-                let draft = ClipboardItem(kind: .image, category: .image, contentHash: hash, preview: "Image",
+                let snippet = ocr.map { ContentClassifier.preview($0, limit: 90) }
+                let draft = ClipboardItem(kind: .image, category: .image, contentHash: hash, text: ocr,
+                                          preview: snippet.map { "Image · " + $0 } ?? "Image",
                                           blobPath: name, thumbPath: thumb, byteSize: data.count,
                                           sourceBundle: clip.sourceBundle, sourceName: clip.sourceName)
                 return store(draft)
