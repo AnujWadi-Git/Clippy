@@ -7,8 +7,13 @@ public final class BlobStore: @unchecked Sendable {
     public let directory: URL
     private let fm = FileManager.default
 
-    public init(directory: URL) throws {
+    private let crypto: CryptoBox?
+    /// True when rich-text blobs can be encrypted (a Keychain key is available).
+    public var canSeal: Bool { crypto != nil }
+
+    public init(directory: URL, crypto: CryptoBox? = nil) throws {
         self.directory = directory
+        self.crypto = crypto
         try fm.createDirectory(at: directory, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         var u = directory; var v = URLResourceValues(); v.isExcludedFromBackup = true; try? u.setResourceValues(v)
     }
@@ -20,6 +25,16 @@ public final class BlobStore: @unchecked Sendable {
         try data.write(to: url, options: .atomic)
         try? fm.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
         return name
+    }
+
+    /// Encrypted write (AES-GCM). Returns nil if no key is available — callers then simply skip the blob.
+    public func writeSealed(_ data: Data, ext: String = "rich") throws -> String? {
+        guard let sealed = crypto?.sealData(data) else { return nil }
+        return try write(sealed, ext: ext)
+    }
+    public func readSealed(_ name: String) -> Data? {
+        guard let raw = read(name), let c = crypto else { return nil }
+        return c.openData(raw)
     }
 
     public func read(_ name: String) -> Data? { try? Data(contentsOf: directory.appendingPathComponent(name)) }

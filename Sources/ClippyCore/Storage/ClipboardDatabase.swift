@@ -28,6 +28,9 @@ public final class ClipboardDatabase: @unchecked Sendable {
           copy_count INTEGER NOT NULL DEFAULT 1, pinned INTEGER NOT NULL DEFAULT 0,
           pin_order INTEGER, expires_at REAL)
         """)
+        // v2: rich text blob path (idempotent migration)
+        let cols = try db.query("PRAGMA table_info(clip_item)") { $0.text(1) ?? "" }
+        if !cols.contains("rich_path") { try db.execute("ALTER TABLE clip_item ADD COLUMN rich_path TEXT") }
         try db.execute("CREATE INDEX IF NOT EXISTS idx_clip_last_used ON clip_item(last_used_at DESC)")
         try db.execute("""
         CREATE TABLE IF NOT EXISTS clip_embedding (
@@ -37,7 +40,7 @@ public final class ClipboardDatabase: @unchecked Sendable {
         try db.execute("CREATE INDEX IF NOT EXISTS idx_clip_expires ON clip_item(expires_at) WHERE pinned = 0")
     }
 
-    private static let cols = "id,kind,category,content_hash,text,preview,blob_path,thumb_path,byte_size,source_bundle,source_name,created_at,last_used_at,copy_count,pinned,pin_order,expires_at"
+    private static let cols = "id,kind,category,content_hash,text,preview,blob_path,thumb_path,byte_size,source_bundle,source_name,created_at,last_used_at,copy_count,pinned,pin_order,expires_at,rich_path"
 
     private func item(_ r: SQLiteDatabase.Row) -> ClipboardItem {
         var it = ClipboardItem(id: r.text(0)!, kind: ClipKind(rawValue: r.text(1) ?? "text") ?? .text,
@@ -48,6 +51,7 @@ public final class ClipboardDatabase: @unchecked Sendable {
                       createdAt: r.date(11) ?? Date(), lastUsedAt: r.date(12),
                       copyCount: r.int(13), pinned: r.int(14) != 0,
                       pinOrder: r.optInt(15), expiresAt: r.date(16))
+        it.richPath = r.text(17)
         if let c = crypto, it.pinned {
             it.text = it.text.map(c.open)
             it.preview = c.open(it.preview)
@@ -63,12 +67,12 @@ public final class ClipboardDatabase: @unchecked Sendable {
     private func insertLocked(_ i: ClipboardItem) throws {
         var i = i
         if let c = crypto, i.pinned { i.text = i.text.map(c.seal); i.preview = c.seal(i.preview) }
-        try db.execute("INSERT OR REPLACE INTO clip_item (\(Self.cols)) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", [
+        try db.execute("INSERT OR REPLACE INTO clip_item (\(Self.cols)) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", [
             .text(i.id), .text(i.kind.rawValue), .text(i.category.rawValue), .text(i.contentHash),
             .opt(i.text), .text(i.preview), .opt(i.blobPath), .opt(i.thumbPath), .int(Int64(i.byteSize)),
             .opt(i.sourceBundle), .opt(i.sourceName),
             .double(i.createdAt.timeIntervalSince1970), .double(i.lastUsedAt.timeIntervalSince1970),
-            .int(Int64(i.copyCount)), .int(i.pinned ? 1 : 0), .opt(i.pinOrder), .opt(i.expiresAt)])
+            .int(Int64(i.copyCount)), .int(i.pinned ? 1 : 0), .opt(i.pinOrder), .opt(i.expiresAt), .opt(i.richPath)])
     }
 
     public func item(withHash hash: String) throws -> ClipboardItem? {
@@ -115,6 +119,11 @@ public final class ClipboardDatabase: @unchecked Sendable {
           created_at = CASE WHEN pinned = 1 THEN created_at ELSE ? END,
           expires_at = CASE WHEN pinned = 1 THEN NULL ELSE ? END WHERE id = ?
         """, [.double(lastUsed.timeIntervalSince1970), .double(createdAt.timeIntervalSince1970), .opt(expiresAt), .text(id)])
+    }
+
+    public func setRichPath(id: String, path: String?) throws {
+        lock.lock(); defer { lock.unlock() }
+        try db.execute("UPDATE clip_item SET rich_path = ? WHERE id = ?", [.opt(path), .text(id)])
     }
 
     public func markUsed(id: String, at date: Date) throws {

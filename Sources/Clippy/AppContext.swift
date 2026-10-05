@@ -42,7 +42,7 @@ final class AppContext {
         let database: ClipboardDatabase
         do {
             let db = try ClipboardDatabase(path: base.appendingPathComponent("clippy.sqlite").path, crypto: crypto)
-            let blobs = try BlobStore(directory: base.appendingPathComponent("Blobs", isDirectory: true))
+            let blobs = try BlobStore(directory: base.appendingPathComponent("Blobs", isDirectory: true), crypto: crypto)
             repo = try ClipboardRepository(database: db, blobs: blobs, settings: settings)
             database = db
         } catch {

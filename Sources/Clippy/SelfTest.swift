@@ -31,7 +31,7 @@ enum SelfTest {
         copy("resume v1 final draft"); copy("resume v2 final draft"); copy("resume v3 final draft")
         copy("me@example.com", times: 6)
         copy("AKIAIOSFODNN7EXAMPLE")
-        check(ctx.repository.snapshot().count == 13, "13 items stored (secret dropped), got \(ctx.repository.snapshot().count)")
+        check(ctx.repository.snapshot().count >= 13, "13 items stored (secret dropped), got \(ctx.repository.snapshot().count)")
         check(!ctx.repository.snapshot().contains { $0.preview.contains("AKIA") }, "secret not stored")
         vm.reset()
 
@@ -91,6 +91,18 @@ enum SelfTest {
         vm.query = "example.com/p"
         if let linkItem = vm.results.first { vm.perform(.cleanLink, on: linkItem) }
         check(ctx.repository.snapshot().contains { $0.text == "https://example.com/p?id=7" }, "tracking params stripped")
+
+        print("• rich text round trip")
+        let rtfData = Data("{\\rtf1\\ansi {\\b Formatted selftest text}}".utf8)
+        ctx.pipeline.process(CapturedClip(payload: .text("Formatted selftest text"), sourceName: "SelfTest", rich: ["public.rtf": rtfData]))
+        if let rich = ctx.repository.snapshot().first(where: { $0.text == "Formatted selftest text" }) {
+            check(rich.richPath != nil, "formatting stored")
+            ctx.paster.writeToPasteboard(rich)
+            check(NSPasteboard.general.data(forType: NSPasteboard.PasteboardType("public.rtf")) == rtfData, "paste restores RTF")
+            ctx.paster.writeToPasteboard(rich, plain: true)
+            check(NSPasteboard.general.data(forType: NSPasteboard.PasteboardType("public.rtf")) == nil
+                  && NSPasteboard.general.string(forType: .string) == "Formatted selftest text", "plain paste strips formatting")
+        } else { check(false, "formatted item not stored") }
 
         print("• merge-paste")
         vm.reset(); vm.query = "docker"

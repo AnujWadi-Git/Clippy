@@ -7,8 +7,10 @@ public struct CapturedClip: Sendable {
     public var pasteboardTypes: [String]
     public var sourceBundle: String?
     public var sourceName: String?
-    public init(payload: Payload, pasteboardTypes: [String] = [], sourceBundle: String? = nil, sourceName: String? = nil) {
-        self.payload = payload; self.pasteboardTypes = pasteboardTypes
+    /// Original formatting (pasteboard type → bytes), e.g. public.rtf / public.html. Only for text payloads.
+    public var rich: [String: Data]
+    public init(payload: Payload, pasteboardTypes: [String] = [], sourceBundle: String? = nil, sourceName: String? = nil, rich: [String: Data] = [:]) {
+        self.payload = payload; self.pasteboardTypes = pasteboardTypes; self.rich = rich
         self.sourceBundle = sourceBundle; self.sourceName = sourceName
     }
 }
@@ -63,7 +65,7 @@ public final class CapturePipeline: @unchecked Sendable {
                 }
                 return .droppedSensitive(v.reason)
             }
-            return store(draft)
+            return store(attachRich(clip.rich, to: draft))
 
         case .files(let paths):
             guard !paths.isEmpty else { return .empty }
@@ -107,6 +109,16 @@ public final class CapturePipeline: @unchecked Sendable {
                 return store(draft)
             } catch { return .failed }
         }
+    }
+
+    /// Stores formatting encrypted on disk. Skipped when no key is available (plain text still works).
+    private func attachRich(_ rich: [String: Data], to draft: ClipboardItem) -> ClipboardItem {
+        guard settings.keepFormatting, !rich.isEmpty, repo.blobs.canSeal, let blob = RichContent.encode(rich),
+              let name = try? repo.blobs.writeSealed(blob) else { return draft }
+        var d = draft
+        d.richPath = name
+        d.byteSize += blob.count
+        return d
     }
 
     private func store(_ draft: ClipboardItem) -> CaptureOutcome {

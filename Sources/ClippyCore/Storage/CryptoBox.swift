@@ -39,5 +39,12 @@ public struct CryptoBox: Sendable {
         return str
     }
 
+    /// Raw-bytes sealing (used for rich-text blobs on disk).
+    public func sealData(_ d: Data) -> Data? { try? AES.GCM.seal(d, using: key).combined }
+    public func openData(_ d: Data) -> Data? {
+        guard let box = try? AES.GCM.SealedBox(combined: d) else { return nil }
+        return try? AES.GCM.open(box, using: key)
+    }
+
     public static func isSealed(_ s: String) -> Bool { s.hasPrefix(prefix) }
 }

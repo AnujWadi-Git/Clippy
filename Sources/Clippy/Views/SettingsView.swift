@@ -70,6 +70,7 @@ struct ClipboardTab: View {
             Stepper("Maximum storage: \(settings.maxDiskMB) MB", value: $settings.maxDiskMB, in: 10...5_000, step: 50)
             Toggle("Ignore duplicate entries", isOn: $settings.ignoreDuplicates)
             LabeledContent("Currently using", value: ByteCountFormatter.string(fromByteCount: Int64(m.usage), countStyle: .file))
+            Toggle("Keep text formatting (bold, links…) — ⌥↩ pastes plain", isOn: $settings.keepFormatting)
             Toggle("Read text in copied images (OCR, on-device)", isOn: $settings.ocrImages)
             Section("Backup") {
                 HStack {

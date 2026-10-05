@@ -31,6 +31,9 @@ final class PasteManager {
         pb.clearContents()
         switch item.kind {
         case .text, .url:
+            if !plain, let name = item.richPath, let blob = repo.blobs.readSealed(name), let rich = RichContent.decode(blob) {
+                for (type, data) in rich { pb.setData(data, forType: NSPasteboard.PasteboardType(type)) }
+            }
             pb.setString(item.text ?? item.preview, forType: .string)
         case .image:
             if let name = item.blobPath, let data = repo.blobs.read(name) {

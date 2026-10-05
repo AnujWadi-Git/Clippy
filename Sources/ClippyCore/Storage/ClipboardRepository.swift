@@ -50,6 +50,10 @@ public final class ClipboardRepository: @unchecked Sendable {
                 cache.removeAll { $0.id == u.id }
                 insertSorted(u)
                 if let blob = draft.blobPath, blob != u.blobPath { blobs.remove(blob); blobs.remove(draft.thumbPath) }
+                if u.richPath == nil, let rp = draft.richPath {      // earlier copy was plain: adopt the formatted version
+                    try? db.setRichPath(id: u.id, path: rp); u.richPath = rp
+                    if let idx = cache.firstIndex(where: { $0.id == u.id }) { cache[idx].richPath = rp }
+                } else { blobs.remove(draft.richPath) }
                 return .duplicate(u)
             }
         }
@@ -170,7 +174,7 @@ public final class ClipboardRepository: @unchecked Sendable {
             cache.removeAll { ids.contains($0.id) }
         }
         try enforceLimitsLocked()
-        blobs.removeOrphans(keeping: Set(cache.flatMap { [$0.blobPath, $0.thumbPath].compactMap { $0 } }))
+        blobs.removeOrphans(keeping: Set(cache.flatMap { [$0.blobPath, $0.thumbPath, $0.richPath].compactMap { $0 } }))
         if !gone.isEmpty || junkCount > 0 { db.checkpoint(); onChange?() }
         return gone.count + junkCount
     }
@@ -191,7 +195,7 @@ public final class ClipboardRepository: @unchecked Sendable {
         }
     }
 
-    private func removeBlobs(_ it: ClipboardItem) { blobs.remove(it.blobPath); blobs.remove(it.thumbPath) }
+    private func removeBlobs(_ it: ClipboardItem) { blobs.remove(it.blobPath); blobs.remove(it.thumbPath); blobs.remove(it.richPath) }
 
     public var diskUsageBytes: Int { (try? db.totalBytes()) ?? 0 }
 }

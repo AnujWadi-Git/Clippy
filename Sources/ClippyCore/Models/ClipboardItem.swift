@@ -17,6 +17,8 @@ public struct ClipboardItem: Identifiable, Equatable, Sendable {
     public var preview: String
     public var blobPath: String?
     public var thumbPath: String?
+    /// Encrypted original formatting (RTF/HTML) so pasting keeps bold, links, etc. Nil for plain text.
+    public var richPath: String?
     public var byteSize: Int
     public var sourceBundle: String?
     public var sourceName: String?
@@ -29,13 +31,13 @@ public struct ClipboardItem: Identifiable, Equatable, Sendable {
 
     public init(id: String = UUID().uuidString, kind: ClipKind, category: ClipCategory,
                 contentHash: String, text: String? = nil, preview: String,
-                blobPath: String? = nil, thumbPath: String? = nil, byteSize: Int,
+                blobPath: String? = nil, thumbPath: String? = nil, richPath: String? = nil, byteSize: Int,
                 sourceBundle: String? = nil, sourceName: String? = nil,
                 createdAt: Date = Date(), lastUsedAt: Date? = nil, copyCount: Int = 1,
                 pinned: Bool = false, pinOrder: Int? = nil, expiresAt: Date? = nil) {
         self.id = id; self.kind = kind; self.category = category
         self.contentHash = contentHash; self.text = text; self.preview = preview
-        self.blobPath = blobPath; self.thumbPath = thumbPath; self.byteSize = byteSize
+        self.blobPath = blobPath; self.thumbPath = thumbPath; self.richPath = richPath; self.byteSize = byteSize
         self.sourceBundle = sourceBundle; self.sourceName = sourceName
         self.createdAt = createdAt; self.lastUsedAt = lastUsedAt ?? createdAt
         self.copyCount = copyCount; self.pinned = pinned; self.pinOrder = pinOrder

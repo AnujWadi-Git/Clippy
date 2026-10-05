@@ -65,8 +65,16 @@ public final class ClipboardMonitor: @unchecked Sendable {
         if let urls = pasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL], !urls.isEmpty {
             return clip(.files(urls.map(\.path)))
         }
-        // 2. Text (incl. URLs)
-        if let s = pasteboard.string(forType: .string) { return clip(.text(s)) }
+        // 2. Text (incl. URLs), with its original formatting when the source app provided it
+        if let s = pasteboard.string(forType: .string) {
+            var c = clip(.text(s))
+            if settings.keepFormatting {
+                for t in RichContent.keptTypes {
+                    if let d = pasteboard.data(forType: NSPasteboard.PasteboardType(t)), d.count <= RichContent.maxBytes { c.rich[t] = d }
+                }
+            }
+            return c
+        }
         if let s = pasteboard.string(forType: .URL) { return clip(.text(s)) }
         // 3. Images
         if let png = pasteboard.data(forType: .png) { return clip(.image(png)) }

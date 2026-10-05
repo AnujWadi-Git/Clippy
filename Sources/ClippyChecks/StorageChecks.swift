@@ -20,11 +20,11 @@ struct Env {
         db = try ClipboardDatabase(path: ":memory:", crypto: crypto)
         clock = TestClock()
         let c = clock
-        repo = try ClipboardRepository(database: db, blobs: try BlobStore(directory: dir), settings: settings, clock: { c.now })
+        repo = try ClipboardRepository(database: db, blobs: try BlobStore(directory: dir, crypto: crypto), settings: settings, clock: { c.now })
         pipeline = CapturePipeline(repository: repo, settings: settings)
     }
-    func copy(_ s: String, app: String? = nil, types: [String] = []) -> CaptureOutcome {
-        pipeline.process(CapturedClip(payload: .text(s), pasteboardTypes: types, sourceBundle: app, sourceName: app))
+    func copy(_ s: String, app: String? = nil, types: [String] = [], rich: [String: Data] = [:]) -> CaptureOutcome {
+        pipeline.process(CapturedClip(payload: .text(s), pasteboardTypes: types, sourceBundle: app, sourceName: app, rich: rich))
     }
 }
 
