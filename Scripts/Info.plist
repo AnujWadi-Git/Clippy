@@ -5,11 +5,13 @@
 <key>CFBundleDisplayName</key><string>Clippy</string>
 <key>CFBundleIdentifier</key><string>com.anujwadi.Clippy</string>
 <key>CFBundleExecutable</key><string>Clippy</string>
+<key>CFBundleIconFile</key><string>AppIcon</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleShortVersionString</key><string>0.1.0</string>
 <key>CFBundleVersion</key><string>1</string>
 <key>LSMinimumSystemVersion</key><string>14.0</string>
 <key>LSUIElement</key><true/>
+<key>NSAppleEventsUsageDescription</key><string>Clippy does not control other apps with Apple Events.</string>
 <key>NSHighResolutionCapable</key><true/>
 <key>NSHumanReadableCopyright</key><string>Your clipboard, but smarter.</string>
 </dict></plist>

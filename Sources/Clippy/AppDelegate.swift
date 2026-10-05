@@ -40,10 +40,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         macOS may also ask whether Clippy can paste from other apps — choose Allow so it can see what you copy.
         """
+        let login = NSButton(checkboxWithTitle: "Launch Clippy when I log in", target: nil, action: nil)
+        login.state = .on
+        login.sizeToFit()
+        a.accessoryView = login
         a.addButton(withTitle: "Grant Accessibility…")
         a.addButton(withTitle: "Not Now")
         NSApp.activate(ignoringOtherApps: true)
-        if a.runModal() == .alertFirstButtonReturn { PasteManager.requestAccessibility() }
+        let response = a.runModal()
+        if login.state == .on { LoginItem.set(true) }
+        if response == .alertFirstButtonReturn { PasteManager.requestAccessibility() }
         ctx.settings.hasOnboarded = true
     }
 }

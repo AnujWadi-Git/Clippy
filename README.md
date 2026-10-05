@@ -9,10 +9,17 @@
 
 See [docs/DESIGN.md](docs/DESIGN.md) for the full design.
 
-## Build & run
+## Install as an app
 ```bash
-swift test
-Scripts/bundle.sh debug && open dist/Clippy.app
+Scripts/install.sh      # builds a release Clippy.app, installs to /Applications, launches it
+Scripts/make-dmg.sh     # optional: dist/Clippy.dmg for sharing
+```
+Clippy lives in the menu bar (no Dock icon). First launch offers to start at login. Build is ad-hoc signed, so macOS may
+ask you to re-grant Accessibility after each rebuild; a Developer ID signature fixes that for distribution.
+
+## Develop
+```bash
+swift run ClippyChecks && Scripts/bundle.sh debug && open dist/Clippy.app
 ```
 Auto-paste needs **Accessibility** permission (System Settings → Privacy & Security → Accessibility).
 Without it Clippy copies the item and you press ⌘V.
