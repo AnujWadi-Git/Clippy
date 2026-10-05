@@ -5,6 +5,7 @@ processingChecks()
 storageChecks()
 aiChecks()
 intelligenceChecks()
+commandModeChecks()
 searchIntelligenceChecks()
 if CommandLine.arguments.contains("--live-ai") { liveAIChecks() }
 

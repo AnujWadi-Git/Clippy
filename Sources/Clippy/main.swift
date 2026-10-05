@@ -1,6 +1,11 @@
 import AppKit
 
 let app = NSApplication.shared
-let delegate = MainActor.assumeIsolated { AppDelegate() }
-app.delegate = delegate
-app.run()
+if CommandLine.arguments.contains("--selftest") {
+    Task { @MainActor in await SelfTest.run() }
+    app.run()
+} else {
+    let delegate = MainActor.assumeIsolated { AppDelegate() }
+    app.delegate = delegate
+    app.run()
+}

@@ -110,18 +110,57 @@ private struct PrivacyTab: View {
     }
 }
 
+@MainActor private final class AIModel: ObservableObject {
+    @Published var keyDraft = ""
+    @Published var hasKey = false
+    @Published var indexed = 0
+}
+
 private struct AITab: View {
     @Bindable var settings: SettingsManager
-    init(ctx: AppContext) { settings = ctx.settings }
+    let ctx: AppContext
+    @StateObject private var m = AIModel()
+    init(ctx: AppContext) { self.ctx = ctx; settings = ctx.settings }
+
     var body: some View {
         Form {
-            Text("AI features arrive in Clippy v1: semantic search, rewrite, summarize, explain and smart actions. Nothing leaves your Mac unless you explicitly enable cloud processing.")
-                .font(.callout).foregroundStyle(.secondary)
-            Toggle("Enable AI features", isOn: $settings.aiEnabled).disabled(true)
-            Toggle("Prefer local AI", isOn: $settings.preferLocalAI).disabled(true)
-            Toggle("Allow cloud processing", isOn: $settings.allowCloudProcessing).disabled(true)
-            Text("Coming soon").font(.caption).foregroundStyle(.tertiary)
-        }.formStyle(.grouped).padding()
+            Section {
+                Toggle("Enable AI features", isOn: $settings.aiEnabled)
+                    .onChange(of: settings.aiEnabled) { _, _ in ctx.semanticSearchChanged() }
+                Toggle("Prefer on-device AI", isOn: $settings.preferLocalAI).disabled(!settings.aiEnabled)
+                LabeledContent("On-device model") {
+                    if let why = LocalAIService().unavailableReason() {
+                        Label(why, systemImage: "exclamationmark.triangle").foregroundStyle(.orange).font(.caption)
+                    } else { Label("Ready", systemImage: "checkmark.circle.fill").foregroundStyle(.green) }
+                }
+            } footer: {
+                Text("AI only runs when you ask: rewrite, summarize, explain, convert. Sensitive items are never sent to any model.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            Section("Semantic search") {
+                Toggle("Search by meaning (on-device)", isOn: $settings.semanticSearch).disabled(!settings.aiEnabled)
+                    .onChange(of: settings.semanticSearch) { _, _ in ctx.semanticSearchChanged() }
+                LabeledContent("Indexed items", value: "\(m.indexed)")
+                Toggle("Suggest pinning things I copy often", isOn: $settings.pinSuggestions)
+                Toggle("Clean up junk early (stray punctuation, tracking redirects)", isOn: $settings.cleanJunk)
+            }
+            Section {
+                Toggle("Allow cloud processing", isOn: $settings.allowCloudProcessing).disabled(!settings.aiEnabled)
+                if settings.allowCloudProcessing {
+                    TextField("Model", text: $settings.cloudModel).font(.system(size: 12, design: .monospaced))
+                    HStack {
+                        SecureField(m.hasKey ? "API key saved in Keychain" : "Anthropic API key", text: $m.keyDraft)
+                        Button("Save") { ctx.keychain.set(m.keyDraft, for: settings.cloudProvider); m.keyDraft = ""; m.hasKey = true }
+                            .disabled(m.keyDraft.isEmpty)
+                        if m.hasKey { Button("Remove") { ctx.keychain.delete(settings.cloudProvider); m.hasKey = false } }
+                    }
+                    Text("When used, ONLY the single item you chose is sent to Anthropic, and only if on-device AI is unavailable or you turned off “Prefer on-device”. Search never sends anything.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            } header: { Text("Cloud (off by default)") }
+        }
+        .formStyle(.grouped).padding()
+        .onAppear { m.hasKey = ctx.keychain.get(settings.cloudProvider) != nil; m.indexed = ctx.semanticIndex.count }
     }
 }
 

@@ -4,12 +4,14 @@ public struct MemoryHit: Sendable {
     public let item: ClipboardItem
     public let score: Double
     public let why: String
+    public init(item: ClipboardItem, score: Double, why: String) { self.item = item; self.score = score; self.why = why }
 }
 
 public struct MemoryResult: Sendable {
     public let hits: [MemoryHit]
     public let intent: QueryIntent
     public var items: [ClipboardItem] { hits.map(\.item) }
+    public init(hits: [MemoryHit], intent: QueryIntent) { self.hits = hits; self.intent = intent }
     /// Shown when there is nothing. Produced by the app, never by a model.
     public static let none = "No matching clipboard item found."
 }
@@ -18,7 +20,7 @@ public struct MemoryResult: Sendable {
 /// Candidates come from deterministic filters + keyword + embedding signals, so a result can never be an
 /// item that doesn't exist. An optional on-device LLM may re-order the top candidates by ID, nothing more.
 public struct MemorySearch: Sendable {
-    public var semanticMinimum: Float = 0.50      // embedding-only matches must clear this
+    public var semanticMinimum: Float = 0.62      // embedding-only matches (no category/keyword signal) must clear this
     public var semanticFloor: Float = 0.25        // below this the embedding contributes nothing
 
     public init() {}

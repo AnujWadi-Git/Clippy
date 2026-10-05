@@ -10,7 +10,7 @@ public enum AITask: Hashable, Sendable {
     case rewrite(RewriteStyle)
     case translate(String)
     case summarize
-    case explainCode, explainCommand, explainError
+    case explainCode, explainCommand, explainError, explainText
     case convertCode(String)
     case formatCode
     /// Input is already a complete instruction (used for retrieval reranking). Never used on raw clipboard text.
@@ -24,6 +24,7 @@ public enum AITask: Hashable, Sendable {
         case .explainCode: return "Explain Code"
         case .explainCommand: return "Explain Command"
         case .explainError: return "Explain Error"
+        case .explainText: return "Explain"
         case .convertCode(let l): return "Convert to \(l)"
         case .formatCode: return "Fix Formatting"
         case .custom: return "Ask"
@@ -34,7 +35,7 @@ public enum AITask: Hashable, Sendable {
         case .rewrite: return "pencil.and.outline"
         case .translate: return "globe"
         case .summarize: return "text.append"
-        case .explainCode, .explainCommand, .explainError: return "questionmark.bubble"
+        case .explainCode, .explainCommand, .explainError, .explainText: return "questionmark.bubble"
         case .convertCode: return "arrow.triangle.2.circlepath"
         case .formatCode: return "text.alignleft"
         case .custom: return "sparkles"
@@ -65,6 +66,7 @@ public enum PromptBuilder {
         case .summarize: return "Summarize the text in at most 3 short bullet points, each starting with “• ”."
         case .explainCode: return "Explain briefly (max 6 sentences) what this code does."
         case .explainCommand: return "Explain what this terminal command does, flag by flag, briefly. Mention anything destructive."
+        case .explainText: return "Explain what this text means in simple terms, briefly."
         case .explainError: return "Explain this error message in plain language and suggest the most likely fix, briefly."
         case .convertCode(let l): return "Convert this code to \(l). Output only the code."
         case .custom: return ""

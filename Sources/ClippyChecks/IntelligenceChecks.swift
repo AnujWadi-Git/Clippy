@@ -94,3 +94,33 @@ func intelligenceChecks() {
         expect(SimilarGrouper.group(phones).count == 2, "phones never grouped")
     }
 }
+
+func commandModeChecks() {
+    func mk(_ t: String) -> ClipboardItem {
+        let c = ContentClassifier.classify(text: t)
+        return ClipboardItem(kind: c == .link ? .url : .text, category: c, contentHash: t, text: t, preview: t, byteSize: t.utf8.count)
+    }
+    suite("CommandMode") {
+        let note = CommandMode.commands(for: mk("hey can u send that file i need it rn"), aiAvailable: true)
+        func titles(_ q: String, _ item: [ItemAction]) -> [String] { CommandMode.match(q, in: item).map(\.title) }
+        expect(titles("summarize", note) == ["Summarize"])
+        expect(titles("rewrite professional", note) == ["Make Professional"], "\(titles("rewrite professional", note))")
+        expect(titles("translate french", note) == ["Translate to French"])
+        expect(titles("explain", note) == ["Explain"], "plain text explains generically")
+        expect(titles("shorten", note) == ["Shorten"])
+        let json = CommandMode.commands(for: mk("{\"a\":1}"), aiAvailable: true)
+        expect(titles("json format", json).first == "Pretty Print", "\(titles("json format", json))")
+        expect(titles("minify", json) == ["Minify"])
+        expect(titles("validate", json) == ["Validate"])
+        let cmd = CommandMode.commands(for: mk("rm -rf build"), aiAvailable: true)
+        expect(titles("explain", cmd) == ["Explain Command"] && titles("run", cmd) == ["Run in Terminal…"])
+        expect(!titles("professional", cmd).contains("Make Professional"), "no rewrite for commands")
+        let offline = CommandMode.commands(for: mk("hey there friend ok"), aiAvailable: false)
+        expect(CommandMode.match("summarize", in: offline).isEmpty, "AI commands hidden when AI unavailable")
+        expect(CommandMode.isCommandQuery(">json") && CommandMode.commandText(">  json format ") == "json format")
+        expect(CommandMode.match("", in: note).count == note.count)
+        expect(CommandMode.match("zzz", in: note).isEmpty)
+        let link = CommandMode.commands(for: mk("https://example.com/a?utm_source=x"), aiAvailable: false)
+        expect(titles("domain", link) == ["Extract Domain"] && titles("clean", link) == ["Remove Tracking Parameters"])
+    }
+}

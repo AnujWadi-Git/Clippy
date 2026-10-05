@@ -31,7 +31,7 @@ public struct QueryIntent: Equatable, Sendable {
         "json": ([.json], []),
         "email": ([.email], []), "emails": ([.email], []), "mail": ([.email], []),
         "phone": ([.phone], []), "mobile": ([.phone], []), "telephone": ([.phone], []),
-        "address": ([.address, .email], []), "street": ([.address], []), "location": ([.address], []),
+        "address": ([.address], []), "street": ([.address], []), "location": ([.address], []),
         "path": ([.path], []), "folder": ([.path], []), "directory": ([.path], []),
         "image": ([], [.image]), "images": ([], [.image]), "screenshot": ([], [.image]), "picture": ([], [.image]), "photo": ([], [.image]),
         "file": ([.file, .path], [.file]), "files": ([.file, .path], [.file]), "document": ([.file], [.file]),
