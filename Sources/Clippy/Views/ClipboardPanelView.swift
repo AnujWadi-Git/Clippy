@@ -31,7 +31,7 @@ struct ClipboardPanelView: View {
             footer
         }
         .frame(width: 720, height: 470)
-        .background(VisualEffectBackground())
+        .background(panelBackground)
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(.white.opacity(0.10), lineWidth: 0.5))
         .overlay(alignment: .topTrailing) {
@@ -49,12 +49,22 @@ struct ClipboardPanelView: View {
         .onReceive(NotificationCenter.default.publisher(for: .clippyPanelDidShow)) { _ in searchFocused = true }
     }
 
+    @ViewBuilder private var panelBackground: some View {
+        if Brand.exporting { PanelExportBackground() } else { VisualEffectBackground() }
+    }
+
     private var searchBar: some View {
         HStack(spacing: 10) {
             Image(systemName: vm.isCommandMode ? "chevron.right.square" : (vm.smartActive ? "sparkle.magnifyingglass" : "magnifyingglass"))
-                .font(.system(size: 16, weight: .medium)).foregroundStyle(vm.smartActive || vm.isCommandMode ? Color.accentColor : .secondary)
-            TextField("Search, ask (“?”), or run a command (“>”)", text: $vm.query)
-                .textFieldStyle(.plain).font(.system(size: 18)).focused($searchFocused)
+                .font(.system(size: 16, weight: .medium)).foregroundStyle(vm.smartActive || vm.isCommandMode ? Brand.accent : .secondary)
+            if Brand.exporting {
+                Text(vm.query.isEmpty ? "Search, ask (“?”), or run a command (“>”)" : vm.query)
+                    .font(.system(size: 18)).foregroundStyle(vm.query.isEmpty ? .secondary : .primary).lineLimit(1)
+                Spacer(minLength: 0)
+            } else {
+                TextField("Search, ask (“?”), or run a command (“>”)", text: $vm.query)
+                    .textFieldStyle(.plain).font(.system(size: 18)).focused($searchFocused)
+            }
             if vm.busy != nil { ProgressView().controlSize(.small) }
             if vm.settings.monitoringPaused {
                 Label("Paused", systemImage: "pause.circle.fill").font(.caption).foregroundStyle(.orange)
@@ -73,25 +83,37 @@ struct ClipboardPanelView: View {
         }.padding(.horizontal, 16).padding(.bottom, 8)
     }
 
-    private var list: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                if vm.isCommandMode && vm.commandResults.isEmpty {
-                    emptyState(icon: "chevron.right.square", title: vm.commandTarget == nil ? "Copy something first" : "No matching command",
-                               subtitle: vm.aiAvailable ? nil : vm.aiUnavailableReason)
-                } else if !vm.isCommandMode && vm.results.isEmpty {
-                    emptyState(icon: vm.query.isEmpty ? "clipboard" : "magnifyingglass",
-                               title: vm.query.isEmpty ? "Nothing copied yet" : (vm.refining ? "Looking with on-device AI…" : "No matching clipboard item found."),
-                               subtitle: vm.query.isEmpty ? "Items disappear after \(vm.settings.retention.label.lowercased()) unless pinned." : nil)
-                } else {
-                    LazyVStack(spacing: 2) {
-                        if let s = vm.pinSuggestion { PinSuggestionBanner(item: s, vm: vm) }
-                        if vm.smartActive && (!vm.results.isEmpty || vm.refining) { smartChip }
-                        ForEach(vm.rows) { row in rowView(row) }
-                    }.padding(6)
-                }
+    @ViewBuilder private var list: some View {
+        if Brand.exporting {
+            listContent.frame(height: 345, alignment: .top).clipped()   // fixed viewport: no scroll in export
+        } else {
+            ScrollViewReader { proxy in
+                ScrollView { listContent }
+                    .onChange(of: vm.selection) { _, _ in scrollToSelection(proxy) }
             }
-            .onChange(of: vm.selection) { _, _ in scrollToSelection(proxy) }
+        }
+    }
+
+    @ViewBuilder private var listContent: some View {
+        if vm.isCommandMode && vm.commandResults.isEmpty {
+            emptyState(icon: "chevron.right.square", title: vm.commandTarget == nil ? "Copy something first" : "No matching command",
+                       subtitle: vm.aiAvailable ? nil : vm.aiUnavailableReason)
+        } else if !vm.isCommandMode && vm.results.isEmpty {
+            emptyState(icon: vm.query.isEmpty ? "clipboard" : "magnifyingglass",
+                       title: vm.query.isEmpty ? "Nothing copied yet" : (vm.refining ? "Looking with on-device AI…" : "No matching clipboard item found."),
+                       subtitle: vm.query.isEmpty ? "Items disappear after \(vm.settings.retention.label.lowercased()) unless pinned." : nil)
+        } else if Brand.exporting {
+            VStack(spacing: 2) {
+                if let s = vm.pinSuggestion { PinSuggestionBanner(item: s, vm: vm) }
+                if vm.smartActive && (!vm.results.isEmpty || vm.refining) { smartChip }
+                ForEach(vm.rows) { row in rowView(row) }
+            }.padding(6).frame(maxHeight: .infinity, alignment: .top)
+        } else {
+            LazyVStack(spacing: 2) {
+                if let s = vm.pinSuggestion { PinSuggestionBanner(item: s, vm: vm) }
+                if vm.smartActive && (!vm.results.isEmpty || vm.refining) { smartChip }
+                ForEach(vm.rows) { row in rowView(row) }
+            }.padding(6)
         }
     }
 
@@ -125,7 +147,7 @@ struct ClipboardPanelView: View {
             Text("Smart results from your clipboard history").font(.system(size: 11))
             Spacer()
             if vm.refining { ProgressView().controlSize(.mini); Text("Refining on-device…").font(.system(size: 10)).foregroundStyle(.secondary) }
-        }.foregroundStyle(Color.accentColor).padding(.horizontal, 10).padding(.vertical, 4)
+        }.foregroundStyle(Brand.accent).padding(.horizontal, 10).padding(.vertical, 4)
     }
 
     private func emptyState(icon: String, title: String, subtitle: String?) -> some View {
@@ -169,8 +191,8 @@ struct FilterBar: View {
                 Button { vm.filter = f } label: {
                     Text(f.rawValue).font(.system(size: 11.5, weight: vm.filter == f ? .semibold : .regular))
                         .padding(.horizontal, 9).padding(.vertical, 3)
-                        .background(vm.filter == f ? Color.accentColor.opacity(0.22) : .clear, in: Capsule())
-                        .foregroundStyle(vm.filter == f ? Color.accentColor : .secondary)
+                        .background(vm.filter == f ? Brand.accent.opacity(0.22) : .clear, in: Capsule())
+                        .foregroundStyle(vm.filter == f ? Brand.accent : .secondary)
                 }.buttonStyle(.plain)
             }
             Spacer()
@@ -204,44 +226,62 @@ struct CommandRow: View {
     let selected: Bool
     var body: some View {
         HStack(spacing: 9) {
-            Image(systemName: action.symbol).frame(width: 22).foregroundStyle(action.isDestructive ? .red : (selected ? Color.accentColor : .secondary))
+            Image(systemName: action.symbol).frame(width: 22).foregroundStyle(action.isDestructive ? .red : (selected ? Brand.accent : .secondary))
             Text(action.title).font(.system(size: 13)).foregroundStyle(action.isDestructive ? .red : .primary)
             Spacer()
             if action.isAI { Image(systemName: "sparkles").font(.system(size: 10)).foregroundStyle(.tertiary) }
         }
         .padding(.horizontal, 8).padding(.vertical, 6)
-        .background(selected ? Color.accentColor.opacity(0.22) : .clear, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .background(selected ? Brand.accent.opacity(0.22) : .clear, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
+}
+
+struct PanelExportBackground: View {
+    @Environment(\.colorScheme) private var scheme
+    var body: some View { (scheme == .dark ? Color(white: 0.12) : Color(white: 0.975)).opacity(0.97) }
 }
 
 struct ActionsMenu: View {
     @Bindable var vm: PanelViewModel
     let item: ClipboardItem
+    @Environment(\.colorScheme) private var scheme
+
+    private func rows(_ actions: [ItemAction]) -> some View {
+        VStack(alignment: .leading, spacing: 1) {
+            ForEach(Array(actions.enumerated()), id: \.offset) { i, a in
+                HStack(spacing: 8) {
+                    Image(systemName: a.symbol).frame(width: 16).foregroundStyle(a.isDestructive ? .red : (a.isAI ? Brand.accent : .secondary))
+                    Text(a.title).font(.system(size: 13)).foregroundStyle(a.isDestructive ? .red : .primary)
+                    Spacer()
+                    if a.isAI { Image(systemName: "sparkles").font(.system(size: 9)).foregroundStyle(.tertiary) }
+                }
+                .padding(.horizontal, 10).padding(.vertical, 5)
+                .background(i == vm.actionSelection ? Brand.accent.opacity(0.25) : .clear, in: RoundedRectangle(cornerRadius: 6))
+                .contentShape(Rectangle())
+                .id(i)
+                .onTapGesture { vm.perform(a, on: item) }
+            }
+        }.padding(6)
+    }
+
     var body: some View {
         let actions = vm.availableActions(for: item)
-        ScrollViewReader { proxy in
-            ScrollView {
-                VStack(alignment: .leading, spacing: 1) {
-                    ForEach(Array(actions.enumerated()), id: \.offset) { i, a in
-                        HStack(spacing: 8) {
-                            Image(systemName: a.symbol).frame(width: 16).foregroundStyle(a.isDestructive ? .red : (a.isAI ? Color.accentColor : .secondary))
-                            Text(a.title).font(.system(size: 13)).foregroundStyle(a.isDestructive ? .red : .primary)
-                            Spacer()
-                            if a.isAI { Image(systemName: "sparkles").font(.system(size: 9)).foregroundStyle(.tertiary) }
-                        }
-                        .padding(.horizontal, 10).padding(.vertical, 5)
-                        .background(i == vm.actionSelection ? Color.accentColor.opacity(0.25) : .clear, in: RoundedRectangle(cornerRadius: 6))
-                        .contentShape(Rectangle())
-                        .id(i)
-                        .onTapGesture { vm.perform(a, on: item) }
-                    }
-                }.padding(6)
+        Group {
+            if Brand.exporting {
+                rows(actions)
+            } else {
+                ScrollViewReader { proxy in
+                    ScrollView { rows(actions) }
+                        .onChange(of: vm.actionSelection) { _, n in proxy.scrollTo(n) }
+                }
             }
-            .onChange(of: vm.actionSelection) { _, n in proxy.scrollTo(n) }
         }
         .frame(width: 240, height: min(CGFloat(actions.count) * 28 + 12, 330))
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(.white.opacity(0.12), lineWidth: 0.5))
+        .background {
+            if Brand.exporting { RoundedRectangle(cornerRadius: 10, style: .continuous).fill(scheme == .dark ? Color(white: 0.17) : Color.white) }
+            else { RoundedRectangle(cornerRadius: 10, style: .continuous).fill(.regularMaterial) }
+        }
+        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(scheme == .dark ? .white.opacity(0.12) : .black.opacity(0.1), lineWidth: 0.5))
         .shadow(color: .black.opacity(0.3), radius: 12, y: 4)
     }
 }

@@ -121,6 +121,13 @@ public final class ClipboardDatabase: @unchecked Sendable {
         """, [.double(lastUsed.timeIntervalSince1970), .double(createdAt.timeIntervalSince1970), .opt(expiresAt), .text(id)])
     }
 
+    /// Test/export helper: rewrite an item's timestamps.
+    public func backdate(id: String, created: Date, lastUsed: Date, expires: Date?) throws {
+        lock.lock(); defer { lock.unlock() }
+        try db.execute("UPDATE clip_item SET created_at = ?, last_used_at = ?, expires_at = ? WHERE id = ?",
+                       [.double(created.timeIntervalSince1970), .double(lastUsed.timeIntervalSince1970), .opt(expires), .text(id)])
+    }
+
     public func setRichPath(id: String, path: String?) throws {
         lock.lock(); defer { lock.unlock() }
         try db.execute("UPDATE clip_item SET rich_path = ? WHERE id = ?", [.opt(path), .text(id)])

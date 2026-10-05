@@ -65,7 +65,7 @@ struct ItemRow: View {
         HStack(spacing: 9) {
             if let m = mark {
                 Text("\(m)").font(.system(size: 10, weight: .bold, design: .rounded)).foregroundStyle(.white)
-                    .frame(width: 16, height: 16).background(Color.accentColor, in: Circle())
+                    .frame(width: 16, height: 16).background(Brand.accent, in: Circle())
             }
             if nested { Image(systemName: "arrow.turn.down.right").font(.system(size: 9)).foregroundStyle(.tertiary).frame(width: 14) }
             leading.frame(width: 22, height: 22)
@@ -85,14 +85,14 @@ struct ItemRow: View {
             else { Text(ClipStyle.relative(item.lastUsedAt)).font(.system(size: 11)).foregroundStyle(.tertiary) }
         }
         .padding(.horizontal, 8).padding(.vertical, 6)
-        .background(selected ? Color.accentColor.opacity(0.22) : .clear, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .background(selected ? Brand.accent.opacity(0.22) : .clear, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 
     @ViewBuilder private var leading: some View {
         if item.kind == .image, let t = item.thumbPath, let data = repo.blobs.read(t), let img = NSImage(data: data) {
             Image(nsImage: img).resizable().scaledToFill().frame(width: 22, height: 22).clipShape(RoundedRectangle(cornerRadius: 4))
         } else {
-            Image(systemName: ClipStyle.symbol(item)).font(.system(size: 13)).foregroundStyle(selected ? Color.accentColor : .secondary)
+            Image(systemName: ClipStyle.symbol(item)).font(.system(size: 13)).foregroundStyle(selected ? Brand.accent : .secondary)
         }
     }
 }
@@ -108,19 +108,18 @@ struct PreviewPane: View {
                     if item.kind == .image, let n = item.blobPath, let d = vm.repo.blobs.read(n), let img = NSImage(data: d) {
                         Image(nsImage: img).resizable().scaledToFit().frame(maxWidth: .infinity, maxHeight: .infinity)
                     } else {
-                        ScrollView {
-                            Text(String((item.text ?? item.preview).prefix(6000)))
-                                .font(item.category == .code || item.category == .command || item.category == .json || item.category == .path
-                                      ? .system(size: 12, design: .monospaced) : .system(size: 13))
-                                .frame(maxWidth: .infinity, alignment: .topLeading).padding(14)
-                        }
+                        let body = Text(String((item.text ?? item.preview).prefix(6000)))
+                            .font(item.category == .code || item.category == .command || item.category == .json || item.category == .path
+                                  ? .system(size: 12, design: .monospaced) : .system(size: 13))
+                            .frame(maxWidth: .infinity, alignment: .topLeading).padding(14)
+                        if Brand.exporting { body.frame(maxHeight: .infinity, alignment: .top) } else { ScrollView { body } }
                     }
                 }.frame(maxHeight: .infinity)
                 Divider().opacity(0.5)
                 VStack(alignment: .leading, spacing: 3) {
                     if let why = vm.selectedReason, !why.isEmpty {
                         HStack(spacing: 4) { Image(systemName: "sparkles").font(.system(size: 9)); Text("Matched: \(why)") }
-                            .font(.system(size: 11)).foregroundStyle(Color.accentColor).padding(.bottom, 2)
+                            .font(.system(size: 11)).foregroundStyle(Brand.accent).padding(.bottom, 2)
                     }
                     meta("Type", item.category.rawValue.capitalized)
                     if let s = item.sourceName { meta("From", s) }

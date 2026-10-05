@@ -103,6 +103,18 @@ public final class ClipboardRepository: @unchecked Sendable {
         }
     }
 
+    /// For screenshot/demo seeding only: make an item look `seconds` old (keeps pin/expiry rules consistent).
+    public func backdate(id: String, by seconds: TimeInterval) {
+        lock.lock(); defer { lock.unlock(); onChange?() }
+        guard let idx = cache.firstIndex(where: { $0.id == id }) else { return }
+        let now = clock()
+        let created = now.addingTimeInterval(-seconds)
+        let expires = cache[idx].pinned ? nil : settings.retention.expiry(from: created)
+        try? db.backdate(id: id, created: created, lastUsed: created, expires: expires)
+        cache[idx].createdAt = created; cache[idx].lastUsedAt = created; cache[idx].expiresAt = expires
+        resortLocked()
+    }
+
     // MARK: Mutations
 
     public func setPinned(id: String, _ pinned: Bool) throws {
