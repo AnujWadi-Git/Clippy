@@ -81,12 +81,12 @@ struct ClipboardPanelView: View {
                                subtitle: vm.aiAvailable ? nil : vm.aiUnavailableReason)
                 } else if !vm.isCommandMode && vm.results.isEmpty {
                     emptyState(icon: vm.query.isEmpty ? "clipboard" : "magnifyingglass",
-                               title: vm.query.isEmpty ? "Nothing copied yet" : "No matching clipboard item found.",
+                               title: vm.query.isEmpty ? "Nothing copied yet" : (vm.refining ? "Looking with on-device AI…" : "No matching clipboard item found."),
                                subtitle: vm.query.isEmpty ? "Items disappear after \(vm.settings.retention.label.lowercased()) unless pinned." : nil)
                 } else {
                     LazyVStack(spacing: 2) {
                         if let s = vm.pinSuggestion { PinSuggestionBanner(item: s, vm: vm) }
-                        if vm.smartActive && !vm.results.isEmpty { smartChip }
+                        if vm.smartActive && (!vm.results.isEmpty || vm.refining) { smartChip }
                         ForEach(vm.rows) { row in rowView(row) }
                     }.padding(6)
                 }
@@ -124,6 +124,7 @@ struct ClipboardPanelView: View {
             Image(systemName: "sparkles").font(.system(size: 10))
             Text("Smart results from your clipboard history").font(.system(size: 11))
             Spacer()
+            if vm.refining { ProgressView().controlSize(.mini); Text("Refining on-device…").font(.system(size: 10)).foregroundStyle(.secondary) }
         }.foregroundStyle(Color.accentColor).padding(.horizontal, 10).padding(.vertical, 4)
     }
 

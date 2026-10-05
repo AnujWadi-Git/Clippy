@@ -22,6 +22,8 @@ public struct QueryIntent: Equatable, Sendable {
         "have", "had", "has", "got", "get", "from", "of", "about", "for", "to", "in", "on", "at", "with", "it", "one", "some",
         "something", "thing", "stuff", "up", "give", "look", "looking", "search", "can", "you", "could", "ago", "just", "and", "or",
         "then", "out", "any", "all", "again", "over", "there", "those", "me", "saved", "pasted", "clipboard", "clip", "item", "into",
+        "how", "why", "when", "who", "whom", "whose", "does", "would", "should", "will", "need", "needs", "want", "wanted", "like", "using", "use", "used",
+        "our", "your", "their", "its", "by", "as", "be", "been", "being", "am", "if", "so", "but", "not", "no", "yes", "than", "too", "very", "also", "http", "https", "www", "com",
     ]
     static let categoryWords: [String: (cats: [ClipCategory], kinds: [ClipKind])] = [
         "link": ([.link], []), "links": ([.link], []), "url": ([.link], []), "urls": ([.link], []), "website": ([.link], []),

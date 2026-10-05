@@ -85,6 +85,14 @@ func runRetrievalEval() {
         if let why = local.unavailableReason() { print("LLM variants skipped:", why); return }
         let assistant = SearchAssistant(ai: local)
         print("\n— with on-device LLM assistance (live model; takes a few minutes) —")
+        if CommandLine.arguments.contains("--neg-only") {
+            for q in EvalData.negatives {
+                var res: MemoryResult?
+                try? blocking { res = await ms.assisted(q, items: items, index: sIdx, assistant: assistant, mode: .balanced, now: now) }
+                print("NEG “\(q)” →", res?.hits.map { "\(keyOf[$0.item.id] ?? "?"):\(String(format: "%.1f", $0.score)):\($0.why)" } ?? [])
+            }
+            return
+        }
         if CommandLine.arguments.contains("--balanced-only") {
             evaluateAsync("hybrid + LLM expand + select (balanced)") { q in await ms.assisted(q, items: items, index: sIdx, assistant: assistant, mode: .balanced, now: now).items }
             return

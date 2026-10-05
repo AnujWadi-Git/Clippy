@@ -35,6 +35,7 @@ final class PanelViewModel {
     private(set) var commandTarget: ClipboardItem?
     private(set) var pinSuggestion: ClipboardItem?
     private(set) var busy: String?
+    private(set) var refining = false
     private var groupSize: [String: Int] = [:]
     private var expanded = Set<String>()
     private var smartTask: Task<Void, Never>?
@@ -60,7 +61,7 @@ final class PanelViewModel {
     var hasSimilar: Bool { selectedItem.map { (groupSize[$0.id] ?? 0) > 0 } ?? false }
 
     func reset() {
-        smartTask?.cancel(); aiTask?.cancel(); busy = nil
+        smartTask?.cancel(); aiTask?.cancel(); busy = nil; refining = false
         query = ""; filter = .all; selection = 0; actionsOpen = false; toast = nil; expanded = []
         recompute()
     }
@@ -102,20 +103,29 @@ final class PanelViewModel {
                 search.search(text, items: snapshot, index: index.isAvailable ? index : nil)
             }.value
             guard let self, !Task.isCancelled, self.query == q else { return }
-            var hits = result.hits.filter { filter.accepts($0.item) }
+            let hits = result.hits.filter { filter.accepts($0.item) }
             self.smartActive = true
             self.smartNoMatch = hits.isEmpty
-            if hits.isEmpty { return }               // keep keyword results (if any) beneath the “no match” note
-            self.smartReasons = Dictionary(uniqueKeysWithValues: hits.map { ($0.item.id, $0.why) })
-            self.results = hits.map(\.item)
-            self.selection = 0
-            self.buildRows(grouped: false)
-            // Optional on-device re-ordering of the top candidates (never removes anything).
-            if self.ctx.ai.isAvailable, hits.count > 1 {
-                let reranked = await search.rerank(MemoryResult(hits: hits, intent: result.intent), query: text, ai: self.ctx.ai)
-                guard !Task.isCancelled, self.query == q, self.selection == 0 else { return }
-                hits = reranked.hits
+            if hits.isEmpty && !(self.settings.aiEnabled && self.ctx.localAI.unavailableReason() == nil && text.split(separator: " ").count >= 2) { return }
+            if !hits.isEmpty {   // otherwise keep the plain keyword results already on screen
+                self.smartReasons = Dictionary(uniqueKeysWithValues: hits.map { ($0.item.id, $0.why) })
                 self.results = hits.map(\.item)
+                self.selection = 0
+                self.buildRows(grouped: false)
+            }
+            // On-device refinement: the model expands the query and picks among real candidates. It runs after the
+            // instant results are on screen and is skipped if the user has already started acting on them.
+            let words = text.split(separator: " ").count
+            if self.settings.aiEnabled, words >= 2, self.ctx.localAI.unavailableReason() == nil {
+                self.refining = true
+                let assisted = await search.assisted(text, items: snapshot, index: index.isAvailable ? index : nil,
+                                                     assistant: self.ctx.searchAssistant, mode: .balanced)
+                self.refining = false
+                guard !Task.isCancelled, self.query == q, self.selection == 0 else { self.smartNoMatch = self.results.isEmpty; return }
+                let refined = assisted.hits.filter { filter.accepts($0.item) }
+                self.smartNoMatch = refined.isEmpty
+                self.smartReasons = Dictionary(uniqueKeysWithValues: refined.map { ($0.item.id, $0.why) })
+                self.results = refined.map(\.item)
                 self.buildRows(grouped: false)
             }
         }

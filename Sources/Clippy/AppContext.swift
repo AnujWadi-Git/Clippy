@@ -15,6 +15,8 @@ final class AppContext {
     let ai: AIRouter
     let semanticIndex: SemanticIndex
     let memorySearch = MemorySearch()
+    let localAI = LocalAIService()
+    lazy var searchAssistant = SearchAssistant(ai: localAI)   // on-device only; retrieval never uses the cloud
     let keychain = KeychainStore(service: "com.anujwadi.Clippy.ai")
     lazy var panelModel = PanelViewModel(ctx: self)
     private let indexQueue = DispatchQueue(label: "clippy.index", qos: .utility)
