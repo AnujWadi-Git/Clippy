@@ -9,6 +9,8 @@
 
 See [docs/DESIGN.md](docs/DESIGN.md) for the full design.
 
+See [INSTALL.md](INSTALL.md) for end-user instructions.
+
 ## Install as an app
 ```bash
 Scripts/install.sh      # builds a release Clippy.app, installs to /Applications, launches it
