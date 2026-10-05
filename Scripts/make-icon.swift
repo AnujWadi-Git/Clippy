@@ -10,7 +10,7 @@ func render(_ px: Int) -> Data {
     img.lockFocus()
     let rect = NSRect(origin: .zero, size: size).insetBy(dx: CGFloat(px) * 0.06, dy: CGFloat(px) * 0.06)
     let path = NSBezierPath(roundedRect: rect, xRadius: CGFloat(px) * 0.22, yRadius: CGFloat(px) * 0.22)
-    NSGradient(colors: [NSColor(red: 0.20, green: 0.55, blue: 1.0, alpha: 1), NSColor(red: 0.36, green: 0.28, blue: 0.95, alpha: 1)])!
+    NSGradient(colors: [NSColor(red: 0.62, green: 0.42, blue: 1.0, alpha: 1), NSColor(red: 0.36, green: 0.20, blue: 0.84, alpha: 1)])!
         .draw(in: path, angle: -60)
     let cfg = NSImage.SymbolConfiguration(pointSize: CGFloat(px) * 0.5, weight: .semibold)
         .applying(.init(paletteColors: [.white]))
