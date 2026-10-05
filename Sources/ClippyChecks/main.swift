@@ -8,6 +8,7 @@ ocrChecks()
 aiChecks()
 intelligenceChecks()
 commandModeChecks()
+archiveChecks()
 searchIntelligenceChecks()
 if CommandLine.arguments.contains("--live-ai") { liveAIChecks() }
 

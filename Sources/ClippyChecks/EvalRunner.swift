@@ -85,6 +85,10 @@ func runRetrievalEval() {
         if let why = local.unavailableReason() { print("LLM variants skipped:", why); return }
         let assistant = SearchAssistant(ai: local)
         print("\n— with on-device LLM assistance (live model; takes a few minutes) —")
+        if CommandLine.arguments.contains("--balanced-only") {
+            evaluateAsync("hybrid + LLM expand + select (balanced)") { q in await ms.assisted(q, items: items, index: sIdx, assistant: assistant, mode: .balanced, now: now).items }
+            return
+        }
         evaluateAsync("hybrid + LLM expand + select (trust)") { q in await ms.assisted(q, items: items, index: sIdx, assistant: assistant, mode: .trust, now: now).items }
         evaluateAsync("hybrid + LLM expand + select (soft)") { q in await ms.assisted(q, items: items, index: sIdx, assistant: assistant, mode: .soft, now: now).items }
     }

@@ -91,7 +91,14 @@ final class AppContext {
 
     @discardableResult
     func registerHotkey() -> Bool {
-        hotkey.register(keyCode: settings.hotkeyKeyCode, modifiers: settings.hotkeyModifiers)
+        hotkey.register(id: 2, keyCode: SettingsManager.skipHotkey.keyCode, modifiers: SettingsManager.skipHotkey.modifiers)
+        return hotkey.register(id: 1, keyCode: settings.hotkeyKeyCode, modifiers: settings.hotkeyModifiers)
+    }
+
+    /// ⌥⇧V / menu item: arm or disarm “skip my next copy”.
+    func toggleSkipNextCopy() {
+        let on = monitor.toggleSkipNextCopy()
+        Toaster.shared.show(on ? "Your next copy won’t be recorded" : "Recording resumed")
     }
 
     /// Low-priority, debounced embedding of new items. Skipped entirely when AI/semantic search is off.

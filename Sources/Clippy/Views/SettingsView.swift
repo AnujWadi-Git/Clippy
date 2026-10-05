@@ -52,9 +52,9 @@ private struct GeneralTab: View {
     }
 }
 
-@MainActor private final class UsageModel: ObservableObject { @Published var usage = 0 }
+@MainActor private final class UsageModel: ObservableObject { @Published var usage = 0; @Published var message: String? }
 
-private struct ClipboardTab: View {
+struct ClipboardTab: View {
     @Bindable var settings: SettingsManager
     let ctx: AppContext
     @StateObject private var m = UsageModel()
@@ -70,9 +70,49 @@ private struct ClipboardTab: View {
             Stepper("Maximum storage: \(settings.maxDiskMB) MB", value: $settings.maxDiskMB, in: 10...5_000, step: 50)
             Toggle("Ignore duplicate entries", isOn: $settings.ignoreDuplicates)
             LabeledContent("Currently using", value: ByteCountFormatter.string(fromByteCount: Int64(m.usage), countStyle: .file))
+            Toggle("Read text in copied images (OCR, on-device)", isOn: $settings.ocrImages)
+            Section("Backup") {
+                HStack {
+                    Button("Export Pinned…") { export(pinnedOnly: true) }
+                    Button("Export All…") { export(pinnedOnly: false) }
+                    Button("Import…") { importFile(m) }
+                }
+                if let msg = m.message { Text(msg).font(.caption).foregroundStyle(.secondary) }
+                Text("Exports are plain, unencrypted JSON (text, links and files; not images). Keep them somewhere safe.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
             Button("Clear History…", role: .destructive) { try? ctx.repository.clear() }
         }.formStyle(.grouped).padding()
         .onAppear { m.usage = ctx.repository.diskUsageBytes }
+    }
+}
+
+extension ClipboardTab {
+    @MainActor fileprivate func export(pinnedOnly: Bool) {
+        let alert = NSAlert()
+        alert.messageText = "Export clipboard history?"
+        alert.informativeText = "The file will contain your clips as readable text, including pinned items that Clippy normally keeps encrypted. Store it somewhere safe."
+        alert.addButton(withTitle: "Export…"); alert.addButton(withTitle: "Cancel")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = pinnedOnly ? "Clippy Pinned.json" : "Clippy History.json"
+        panel.allowedContentTypes = [.json]
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            let data = try HistoryArchive.export(ctx.repository.snapshot(), pinnedOnly: pinnedOnly)
+            try data.write(to: url, options: [.atomic])
+            try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
+        } catch { NSAlert(error: error).runModal() }
+    }
+
+    @MainActor fileprivate func importFile(_ m: UsageModel) {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.json]; panel.allowsMultipleSelection = false
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            let r = try HistoryArchive.importArchive(try Data(contentsOf: url), pipeline: ctx.pipeline, repository: ctx.repository)
+            m.message = "Imported \(r.imported) (\(r.pinned) pinned), \(r.duplicates) already present, \(r.skipped) skipped by privacy filters."
+        } catch { m.message = error.localizedDescription }
     }
 }
 
@@ -188,6 +228,7 @@ private struct ShortcutsTab: View {
                 settings.hotkeyKeyCode = SettingsManager.defaultHotkey.keyCode; settings.hotkeyModifiers = SettingsManager.defaultHotkey.modifiers
                 m.failed = !ctx.registerHotkey()
             }
+            LabeledContent("Skip my next copy", value: "⌥⇧V")
             Section("In the panel") {
                 ForEach([("↑ ↓", "Navigate"), ("↩", "Paste"), ("⌥↩", "Paste as plain text"), ("⌘↩", "Copy only"), ("⌘K", "Actions"),
                          ("⌘P", "Pin / unpin"), ("⌘⌫", "Delete"), ("⌘1–9", "Quick paste"), ("⇥", "Next filter"), ("⎋", "Clear search / close")], id: \.0) { k in

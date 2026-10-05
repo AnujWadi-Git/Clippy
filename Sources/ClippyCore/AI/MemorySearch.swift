@@ -104,7 +104,7 @@ public struct MemorySearch: Sendable {
         return MemoryResult(hits: order + rest, intent: result.intent)
     }
 
-    public enum AssistMode: Sendable { case trust, soft }
+    public enum AssistMode: Sendable { case trust, soft, balanced }
 
     /// Full pipeline: model-expanded keywords → hybrid retrieval → model picks among a candidate pool.
     /// `trust`: the model's pick (or NONE) is final. `soft`: its picks go first, the rest of the hybrid hits follow.
@@ -126,6 +126,10 @@ public struct MemorySearch: Sendable {
         let chosen = picked.compactMap { byID[$0.id] }
         switch mode {
         case .trust: return MemoryResult(hits: chosen, intent: base.intent)
+        case .balanced:
+            // Model picks first; only STRONG deterministic evidence (typed keyword/category hit) survives beside them.
+            let ids = Set(chosen.map(\.item.id))
+            return MemoryResult(hits: chosen + base.hits.filter { !ids.contains($0.item.id) && $0.score >= 3.5 }, intent: base.intent)
         case .soft:
             let ids = Set(chosen.map(\.item.id))
             return MemoryResult(hits: chosen + base.hits.filter { !ids.contains($0.item.id) }, intent: base.intent)

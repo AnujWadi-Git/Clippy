@@ -124,3 +124,42 @@ func commandModeChecks() {
         expect(titles("domain", link) == ["Extract Domain"] && titles("clean", link) == ["Remove Tracking Parameters"])
     }
 }
+
+func archiveChecks() {
+    suite("HistoryArchive") {
+        let a = try Env()
+        _ = a.copy("pinned address 12 Oak Lane"); _ = a.copy("ordinary note about lunch"); _ = a.copy("docker ps -a")
+        try a.repo.setPinned(id: a.repo.snapshot().first { $0.preview.hasPrefix("pinned") }!.id, true)
+        _ = a.pipeline.process(CapturedClip(payload: .files(["/tmp/a.txt", "/tmp/b.txt"])))
+        let png = renderTextImage("not exported")
+        _ = a.pipeline.process(CapturedClip(payload: .image(png)))
+
+        let pinnedOnly = try HistoryArchive.export(a.repo.snapshot(), pinnedOnly: true)
+        let all = try HistoryArchive.export(a.repo.snapshot(), pinnedOnly: false)
+        let dec = JSONDecoder(); dec.dateDecodingStrategy = .iso8601
+        expect(try dec.decode(HistoryArchive.Archive.self, from: pinnedOnly).entries.count == 1)
+        let allEntries = try dec.decode(HistoryArchive.Archive.self, from: all).entries
+        expect(allEntries.count == 4 && !allEntries.contains { $0.text.contains("not exported") }, "images excluded: \(allEntries.count)")
+
+        let b = try Env()
+        let r = try HistoryArchive.importArchive(all, pipeline: b.pipeline, repository: b.repo)
+        expect(r == HistoryArchive.ImportResult(imported: 4, duplicates: 0, skipped: 0, pinned: 1), "\(r)")
+        expect(b.repo.snapshot().first { $0.pinned }?.preview == "pinned address 12 Oak Lane")
+        expect(b.repo.snapshot().contains { $0.kind == .file }, "files restored")
+        let again = try HistoryArchive.importArchive(all, pipeline: b.pipeline, repository: b.repo)
+        expect(again.duplicates == 4 && again.imported == 0, "re-import creates no duplicates: \(again)")
+        expect(b.repo.snapshot().count == 4)
+
+        // Hostile archive: secrets are filtered on the way in.
+        let evil = """
+        {"format":"clippy-history","version":1,"exportedAt":"2026-01-01T00:00:00Z","entries":[
+         {"text":"AKIAIOSFODNN7EXAMPLE","kind":"text","pinned":true,"copyCount":1,"createdAt":"2026-01-01T00:00:00Z"},
+         {"text":"fine text here","kind":"text","pinned":false,"copyCount":1,"createdAt":"2026-01-01T00:00:00Z"}]}
+        """.data(using: .utf8)!
+        let c = try Env()
+        let er = try HistoryArchive.importArchive(evil, pipeline: c.pipeline, repository: c.repo)
+        expect(er.imported == 1 && er.skipped == 1 && er.pinned == 0, "\(er)")
+        expect(!c.repo.snapshot().contains { $0.preview.contains("AKIA") })
+        do { _ = try HistoryArchive.importArchive(Data("{}".utf8), pipeline: c.pipeline, repository: c.repo); expect(false, "should throw") } catch { expect(true) }
+    }
+}

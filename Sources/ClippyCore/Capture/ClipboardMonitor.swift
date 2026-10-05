@@ -12,6 +12,9 @@ public final class ClipboardMonitor: @unchecked Sendable {
     private var lastChangeCount: Int
     private var skipCounts = Set<Int>()
     public var interval: TimeInterval = 0.4
+    /// When set, the next copy from another app is not recorded (one-shot). Cleared once consumed.
+    public private(set) var skipNextCopy = false
+    public var onSkipStateChange: (@Sendable (Bool) -> Void)?
     public var onOutcome: (@Sendable (CaptureOutcome) -> Void)?
 
     public init(pipeline: CapturePipeline, settings: SettingsManager) {
@@ -30,6 +33,9 @@ public final class ClipboardMonitor: @unchecked Sendable {
 
     public func stop() { timer?.invalidate(); timer = nil }
 
+    public func setSkipNextCopy(_ on: Bool) { skipNextCopy = on; onSkipStateChange?(on) }
+    public func toggleSkipNextCopy() -> Bool { setSkipNextCopy(!skipNextCopy); return skipNextCopy }
+
     /// Call right after Clippy itself writes to the pasteboard so it isn't recorded as a new copy.
     public func ignoreCurrentChange() { skipCounts.insert(pasteboard.changeCount) }
 
@@ -38,6 +44,7 @@ public final class ClipboardMonitor: @unchecked Sendable {
         guard count != lastChangeCount else { return }
         lastChangeCount = count
         if skipCounts.remove(count) != nil { return }
+        if skipNextCopy { setSkipNextCopy(false); return }   // consumed: this copy is never read or stored
         guard !settings.monitoringPaused else { return }
         guard let clip = readCurrent() else { return }
         queue.async { [pipeline, onOutcome] in onOutcome?(pipeline.process(clip)) }

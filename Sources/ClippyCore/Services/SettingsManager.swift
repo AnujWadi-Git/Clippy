@@ -37,6 +37,8 @@ public final class SettingsManager: @unchecked Sendable {
 
     @ObservationIgnored public var onRetentionChange: ((RetentionPolicy) -> Void)?
 
+    /// ⌥⇧V — “don’t record my next copy”.
+    public static let skipHotkey = (keyCode: 9, modifiers: 0x0800 | 0x0200)
     public static let defaultHotkey = (keyCode: 9 /* V */, modifiers: 0x0800 /* optionKey */)
 
     public init(defaults: UserDefaults = .standard) {

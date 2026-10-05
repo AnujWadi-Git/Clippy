@@ -9,6 +9,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     private let openSettings: () -> Void
     private let historyMenu = NSMenu(), pinnedMenu = NSMenu()
     private var pauseItem: NSMenuItem!
+    private var skipItem: NSMenuItem!
 
     init(context: AppContext, openPanel: @escaping () -> Void, openSettings: @escaping () -> Void) {
         ctx = context; self.openPanel = openPanel; self.openSettings = openSettings
@@ -29,6 +30,8 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         menu.addItem(h); menu.addItem(p)
         menu.addItem(.separator())
         menu.addItem(target(NSMenuItem(title: "Clear History", action: #selector(clearAction), keyEquivalent: "")))
+        skipItem = target(NSMenuItem(title: "Don’t Record My Next Copy", action: #selector(skipAction), keyEquivalent: ""))
+        menu.addItem(skipItem)
         pauseItem = target(NSMenuItem(title: "Pause Clipboard Monitoring", action: #selector(pauseAction), keyEquivalent: ""))
         menu.addItem(pauseItem)
         menu.addItem(.separator())
@@ -44,6 +47,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         let paused = ctx.settings.monitoringPaused
         pauseItem.title = paused ? "Resume Clipboard Monitoring" : "Pause Clipboard Monitoring"
         item.button?.appearsDisabled = paused
+        skipItem.state = ctx.monitor.skipNextCopy ? .on : .off
         let snap = ctx.repository.snapshot()
         fill(historyMenu, with: Array(snap.filter { !$0.pinned }.prefix(10)), empty: "Nothing copied yet")
         fill(pinnedMenu, with: snap.filter(\.pinned), empty: "No pinned items")
@@ -68,6 +72,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     }
     @objc private func openAction() { openPanel() }
     @objc private func settingsAction() { openSettings() }
+    @objc private func skipAction() { ctx.toggleSkipNextCopy() }
     @objc private func pauseAction() { ctx.settings.monitoringPaused.toggle() }
     @objc private func clearAction() {
         let a = NSAlert()

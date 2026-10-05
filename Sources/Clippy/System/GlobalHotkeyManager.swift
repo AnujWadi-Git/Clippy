@@ -4,34 +4,42 @@ import Carbon.HIToolbox
 /// Carbon `RegisterEventHotKey`: still the supported way to get a global shortcut. It needs no
 /// Accessibility / Input Monitoring permission and works inside the sandbox.
 final class GlobalHotkeyManager {
-    private var hotKeyRef: EventHotKeyRef?
+    private var refs: [UInt32: EventHotKeyRef] = [:]
     private var handlerRef: EventHandlerRef?
-    var onTrigger: (() -> Void)?
+    /// Receives the id passed to `register` (1 = open panel, 2 = skip next copy).
+    var onTrigger: ((UInt32) -> Void)?
 
     init() {
         var spec = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
-        InstallEventHandler(GetApplicationEventTarget(), { _, _, userData in
-            guard let userData else { return noErr }
+        InstallEventHandler(GetApplicationEventTarget(), { _, event, userData in
+            guard let userData, let event else { return noErr }
+            var hk = EventHotKeyID()
+            GetEventParameter(event, EventParamName(kEventParamDirectObject), EventParamType(typeEventHotKeyID), nil,
+                              MemoryLayout<EventHotKeyID>.size, nil, &hk)
             let mgr = Unmanaged<GlobalHotkeyManager>.fromOpaque(userData).takeUnretainedValue()
-            DispatchQueue.main.async { mgr.onTrigger?() }
+            DispatchQueue.main.async { mgr.onTrigger?(hk.id) }
             return noErr
         }, 1, &spec, Unmanaged.passUnretained(self).toOpaque(), &handlerRef)
     }
 
-    deinit { unregister(); if let h = handlerRef { RemoveEventHandler(h) } }
+    deinit { unregisterAll(); if let h = handlerRef { RemoveEventHandler(h) } }
 
     /// `modifiers` are Carbon flags (optionKey, cmdKey, shiftKey, controlKey).
     @discardableResult
-    func register(keyCode: Int, modifiers: Int) -> Bool {
-        unregister()
-        let id = EventHotKeyID(signature: OSType(0x434C5050) /* 'CLPP' */, id: 1)
-        let status = RegisterEventHotKey(UInt32(keyCode), UInt32(modifiers), id, GetApplicationEventTarget(), 0, &hotKeyRef)
+    func register(id: UInt32 = 1, keyCode: Int, modifiers: Int) -> Bool {
+        unregister(id: id)
+        var ref: EventHotKeyRef?
+        let hkID = EventHotKeyID(signature: OSType(0x434C5050) /* 'CLPP' */, id: id)
+        let status = RegisterEventHotKey(UInt32(keyCode), UInt32(modifiers), hkID, GetApplicationEventTarget(), 0, &ref)
+        if status == noErr, let ref { refs[id] = ref }
         return status == noErr
     }
 
-    func unregister() {
-        if let r = hotKeyRef { UnregisterEventHotKey(r); hotKeyRef = nil }
+    func unregister(id: UInt32) {
+        if let r = refs[id] { UnregisterEventHotKey(r); refs[id] = nil }
     }
+
+    func unregisterAll() { for id in Array(refs.keys) { unregister(id: id) } }
 
     // MARK: Display helpers
     static func carbonModifiers(from flags: NSEvent.ModifierFlags) -> Int {

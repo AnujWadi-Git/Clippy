@@ -16,7 +16,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         windowController.onOpenSettings = { [weak self] in self?.settingsWindow.show() }
         menuBar = MenuBarController(context: ctx, openPanel: { [weak self] in self?.windowController.show() },
                                     openSettings: { [weak self] in self?.settingsWindow.show() })
-        ctx.hotkey.onTrigger = { [weak self] in self?.windowController.toggle() }
+        ctx.hotkey.onTrigger = { [weak self] id in
+            if id == 2 { self?.ctx.toggleSkipNextCopy() } else { self?.windowController.toggle() }
+        }
 
         if !ctx.registerHotkey() { Toaster.shared.show("Clippy: couldn't register the global shortcut — choose another in Settings") }
         if let err = ctx.storageError { NSLog("Clippy storage error: \(err)") }
