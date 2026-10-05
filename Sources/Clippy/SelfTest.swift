@@ -92,6 +92,21 @@ enum SelfTest {
         if let linkItem = vm.results.first { vm.perform(.cleanLink, on: linkItem) }
         check(ctx.repository.snapshot().contains { $0.text == "https://example.com/p?id=7" }, "tracking params stripped")
 
+        print("• merge-paste")
+        vm.reset(); vm.query = "docker"
+        let a = vm.results.first?.text ?? "?"
+        vm.query = ""
+        if let i = vm.results.firstIndex(where: { $0.preview == "npm run dev" }) {
+            vm.selection = i; _ = vm.handleKey(keyCode: 14, chars: "e", flags: .command)
+            if let j = vm.results.firstIndex(where: { $0.text == a }) {
+                vm.selection = j; _ = vm.handleKey(keyCode: 14, chars: "e", flags: .command)
+                check(vm.marked.count == 2, "two items marked")
+                _ = vm.handleKey(keyCode: 36, chars: "", flags: [])
+                check(ctx.repository.snapshot().contains { $0.text == "npm run dev\n\(a)" }, "merged in marking order")
+                check(vm.marked.isEmpty, "marks cleared after merge")
+            } else { check(false, "docker item not found") }
+        } else { check(false, "npm item not found") }
+
         print("• on-device AI")
         if let why = ctx.ai.unavailableReason() { print("  skipped: \(why)") } else {
             vm.reset(); vm.query = "send that file"

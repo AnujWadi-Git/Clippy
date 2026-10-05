@@ -41,10 +41,15 @@ struct ItemRow: View {
     let shortcutIndex: Int?
     var similar: Int = 0
     var nested: Bool = false
+    var mark: Int? = nil
     let repo: ClipboardRepository
 
     var body: some View {
         HStack(spacing: 9) {
+            if let m = mark {
+                Text("\(m)").font(.system(size: 10, weight: .bold, design: .rounded)).foregroundStyle(.white)
+                    .frame(width: 16, height: 16).background(Color.accentColor, in: Circle())
+            }
             if nested { Image(systemName: "arrow.turn.down.right").font(.system(size: 9)).foregroundStyle(.tertiary).frame(width: 14) }
             leading.frame(width: 22, height: 22)
             Text(item.preview.isEmpty ? "(empty)" : item.preview)

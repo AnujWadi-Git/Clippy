@@ -107,7 +107,7 @@ struct ClipboardPanelView: View {
             Text(t.uppercased()).font(.system(size: 10, weight: .semibold)).foregroundStyle(.tertiary)
                 .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 10).padding(.top, 8).padding(.bottom, 2)
         case .item(let item, let idx, let similar, let nested):
-            ItemRow(item: item, selected: idx == vm.selection, shortcutIndex: idx < 9 ? idx + 1 : nil, similar: similar, nested: nested, repo: vm.repo)
+            ItemRow(item: item, selected: idx == vm.selection, shortcutIndex: idx < 9 ? idx + 1 : nil, similar: similar, nested: nested, mark: vm.markIndex(of: item), repo: vm.repo)
                 .id(item.id)
                 .contentShape(Rectangle())
                 .onTapGesture { vm.selection = idx; vm.onPaste?(item, false, false) }
@@ -143,7 +143,7 @@ struct ClipboardPanelView: View {
             } else if vm.isCommandMode {
                 hint("↩", "Run"); hint("⎋", "Back")
             } else {
-                hint("↩", "Paste"); hint("⌘K", "Actions"); hint("⌘P", "Pin"); hint("⇥", "Filter")
+                if vm.marked.count > 1 { hint("↩", "Paste \(vm.marked.count) together"); hint("⎋", "Unmark") } else { hint("↩", "Paste"); hint("⌘K", "Actions"); hint("⌘P", "Pin"); hint("⌘E", "Mark"); hint("⇥", "Filter") }
                 if vm.hasSimilar { hint("→", "Similar") }
             }
             Spacer()

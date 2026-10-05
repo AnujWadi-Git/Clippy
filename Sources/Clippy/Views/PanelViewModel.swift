@@ -41,6 +41,7 @@ final class PanelViewModel {
     private var smartTask: Task<Void, Never>?
     private var aiTask: Task<Void, Never>?
 
+    private(set) var marked: [String] = []     // ⌘E-marked items, in marking order, for merge-paste
     var selection = 0
     var actionsOpen = false
     var actionSelection = 0
@@ -62,7 +63,7 @@ final class PanelViewModel {
 
     func reset() {
         smartTask?.cancel(); aiTask?.cancel(); busy = nil; refining = false
-        query = ""; filter = .all; selection = 0; actionsOpen = false; toast = nil; expanded = []
+        query = ""; filter = .all; selection = 0; actionsOpen = false; toast = nil; expanded = []; marked = []
         recompute()
     }
 
@@ -294,10 +295,12 @@ final class PanelViewModel {
                 if commandResults.indices.contains(selection), let t = commandTarget { perform(commandResults[selection], on: t) }
                 return true
             }
+            if marked.count > 1, !cmd { pasteMarked(); return true }
             guard let item = selectedItem else { return true }
             onPaste?(item, opt, cmd); return true
         case 53:
-            if !query.isEmpty { query = "" } else { onClose?() }
+            if !marked.isEmpty { marked = []; recompute() }
+            else if !query.isEmpty { query = "" } else { onClose?() }
             return true
         case 48: cycleFilter(flags.contains(.shift) ? -1 : 1); return true
         case 124 where query.isEmpty:                       // → expand similar items
@@ -317,6 +320,7 @@ final class PanelViewModel {
             case "p":
                 if cmd && flags.contains(.shift), pinSuggestion != nil { acceptPinSuggestion(); return true }
                 if let i = selectedItem { perform(i.pinned ? .unpin : .pin, on: i) }; return true
+            case "e": toggleMark(); return true
             case ",": onOpenSettings?(); return true
             default: break
             }
@@ -326,6 +330,31 @@ final class PanelViewModel {
             }
         }
         return false
+    }
+
+    // MARK: Merge-paste
+
+    func markIndex(of item: ClipboardItem) -> Int? { marked.firstIndex(of: item.id).map { $0 + 1 } }
+
+    private func toggleMark() {
+        guard let item = selectedItem, item.kind == .text || item.kind == .url else { flash("Only text and links can be merged"); return }
+        if let i = marked.firstIndex(of: item.id) { marked.remove(at: i) } else { marked.append(item.id) }
+        recompute()
+        if marked.count > 1 { flash("\(marked.count) items marked · ↩ to paste together") }
+    }
+
+    /// Joins the marked items (in the order you marked them) with newlines and pastes the result as one block.
+    private func pasteMarked() {
+        let texts = marked.compactMap { repo.item(id: $0)?.text }
+        guard texts.count > 1 else { return }
+        let merged = texts.joined(separator: "\n")
+        let outcome = ctx.pipeline.process(CapturedClip(payload: .text(merged), pasteboardTypes: [], sourceBundle: nil, sourceName: "Clippy · Merged"))
+        switch outcome {
+        case .stored(let id), .duplicate(let id):
+            marked = []
+            if let item = repo.item(id: id) { onPaste?(item, false, false) }
+        default: flash("Couldn't merge (the result looks sensitive)")
+        }
     }
 
     private func leadOf(_ item: ClipboardItem) -> String? {
