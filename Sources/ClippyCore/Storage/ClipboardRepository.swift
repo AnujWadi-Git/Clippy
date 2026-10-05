@@ -159,12 +159,20 @@ public final class ClipboardRepository: @unchecked Sendable {
         ephemeral.removeAll { ($0.expiresAt ?? now) < now }
         let gone = try db.deleteExpired(now: now)
         for it in gone { removeBlobs(it) }
-        let ids = Set(gone.map(\.id))
+        var ids = Set(gone.map(\.id))
         cache.removeAll { ids.contains($0.id) }
+        // Early cleanup of junk (can only shorten life, never extend it).
+        var junkCount = 0
+        if settings.cleanJunk {
+            for it in cache where JunkDetector.isJunk(it, now: now) {
+                _ = try? db.delete(id: it.id); removeBlobs(it); ids.insert(it.id); junkCount += 1
+            }
+            cache.removeAll { ids.contains($0.id) }
+        }
         try enforceLimitsLocked()
         blobs.removeOrphans(keeping: Set(cache.flatMap { [$0.blobPath, $0.thumbPath].compactMap { $0 } }))
-        if !gone.isEmpty { db.checkpoint(); onChange?() }
-        return gone.count
+        if !gone.isEmpty || junkCount > 0 { db.checkpoint(); onChange?() }
+        return gone.count + junkCount
     }
 
     /// Caller holds the lock.

@@ -30,6 +30,7 @@ public final class SettingsManager: @unchecked Sendable {
     public var cloudProvider: String { didSet { defaults.set(cloudProvider, forKey: "cloudProvider") } }
     public var cloudModel: String { didSet { defaults.set(cloudModel, forKey: "cloudModel") } }
     public var semanticSearch: Bool { didSet { defaults.set(semanticSearch, forKey: "semanticSearch") } }
+    public var cleanJunk: Bool { didSet { defaults.set(cleanJunk, forKey: "cleanJunk") } }
     public var pinSuggestions: Bool { didSet { defaults.set(pinSuggestions, forKey: "pinSuggestions") } }
     public var dismissedPinSuggestions: [String] { didSet { defaults.set(dismissedPinSuggestions, forKey: "dismissedPinSuggestions") } }
 
@@ -63,6 +64,7 @@ public final class SettingsManager: @unchecked Sendable {
         cloudModel = defaults.string(forKey: "cloudModel") ?? "claude-haiku-4-5-20251001"
         semanticSearch = b("semanticSearch", true)
         pinSuggestions = b("pinSuggestions", true)
+        cleanJunk = b("cleanJunk", true)
         dismissedPinSuggestions = defaults.stringArray(forKey: "dismissedPinSuggestions") ?? []
     }
 
