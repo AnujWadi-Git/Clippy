@@ -15,6 +15,7 @@ See [INSTALL.md](INSTALL.md) for end-user instructions.
 ```bash
 Scripts/install.sh      # builds a release Clippy.app, installs to /Applications, launches it
 Scripts/make-dmg.sh     # optional: dist/Clippy.dmg for sharing
+Scripts/publish-to-site.sh   # rebuild the DMG and drop it into the anujwadi.com/clippy page folder
 ```
 Clippy lives in the menu bar (no Dock icon). First launch offers to start at login. Build is ad-hoc signed, so macOS may
 ask you to re-grant Accessibility after each rebuild; a Developer ID signature fixes that for distribution.
