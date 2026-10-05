@@ -5,7 +5,7 @@ public enum ClipKind: String, Codable, Sendable {
 }
 
 public enum ClipCategory: String, Codable, Sendable, CaseIterable {
-    case link, code, command, email, phone, json, path, message, image, file, other
+    case link, code, command, email, phone, json, path, address, message, image, file, other
 }
 
 public struct ClipboardItem: Identifiable, Equatable, Sendable {
@@ -41,6 +41,11 @@ public struct ClipboardItem: Identifiable, Equatable, Sendable {
         self.copyCount = copyCount; self.pinned = pinned; self.pinOrder = pinOrder
         self.expiresAt = expiresAt
     }
+}
+
+extension ClipboardItem {
+    /// Sensitive items held in memory only (never stored, never sent to AI or embedded).
+    public var isHeldSensitive: Bool { preview.hasPrefix("🔒") }
 }
 
 /// How long unpinned items live. Default 24h.

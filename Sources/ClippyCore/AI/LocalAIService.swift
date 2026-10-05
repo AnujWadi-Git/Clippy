@@ -32,7 +32,8 @@ public struct LocalAIService: AIService {
         if #available(macOS 26.0, *) {
             do {
                 let session = LanguageModelSession(instructions: PromptBuilder.system)
-                let response = try await session.respond(to: PromptBuilder.userPrompt(task: task, input: input))
+                let prompt = task == .custom ? input : PromptBuilder.userPrompt(task: task, input: input)
+                let response = try await session.respond(to: prompt)
                 return response.content.trimmingCharacters(in: .whitespacesAndNewlines)
             } catch { throw AIError.failed(error.localizedDescription) }
         }

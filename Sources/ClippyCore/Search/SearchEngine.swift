@@ -51,7 +51,7 @@ public struct SearchEngine: Sendable {
         return scored.sorted { $0.1 != $1.1 ? $0.1 > $1.1 : $0.0.lastUsedAt > $1.0.lastUsedAt }.map(\.0)
     }
 
-    static func fold(_ s: String) -> String {
+    public static func fold(_ s: String) -> String {
         s.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
     }
     private static func isWordStart(_ s: String, _ i: String.Index) -> Bool {

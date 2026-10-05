@@ -10,6 +10,7 @@ enum ClipStyle {
         case .email: return "envelope"
         case .phone: return "phone"
         case .json: return "curlybraces"
+        case .address: return "mappin.and.ellipse"
         case .path, .file: return "doc"
         case .image: return "photo"
         case .message: return "text.alignleft"

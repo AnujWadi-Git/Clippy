@@ -13,6 +13,7 @@ public final class ClipboardDatabase: @unchecked Sendable {
         try db.execute("PRAGMA journal_mode=WAL")
         try db.execute("PRAGMA secure_delete=ON")
         try db.execute("PRAGMA synchronous=NORMAL")
+        try db.execute("PRAGMA foreign_keys=ON")
         try migrate()
     }
 
@@ -28,6 +29,11 @@ public final class ClipboardDatabase: @unchecked Sendable {
           pin_order INTEGER, expires_at REAL)
         """)
         try db.execute("CREATE INDEX IF NOT EXISTS idx_clip_last_used ON clip_item(last_used_at DESC)")
+        try db.execute("""
+        CREATE TABLE IF NOT EXISTS clip_embedding (
+          id TEXT PRIMARY KEY REFERENCES clip_item(id) ON DELETE CASCADE,
+          model TEXT NOT NULL, dim INTEGER NOT NULL, vec BLOB NOT NULL)
+        """)
         try db.execute("CREATE INDEX IF NOT EXISTS idx_clip_expires ON clip_item(expires_at) WHERE pinned = 0")
     }
 
@@ -169,5 +175,38 @@ public final class ClipboardDatabase: @unchecked Sendable {
     public func checkpoint() {
         lock.lock(); defer { lock.unlock() }
         try? db.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+    }
+
+    // MARK: Embeddings (persisted for unpinned items only; pinned vectors stay in memory)
+
+    public func saveEmbedding(id: String, model: String, vector: [Float]) throws {
+        lock.lock(); defer { lock.unlock() }
+        let data = vector.withUnsafeBufferPointer { Data(buffer: $0) }
+        try db.execute("INSERT OR REPLACE INTO clip_embedding (id, model, dim, vec) VALUES (?,?,?,?)",
+                       [.text(id), .text(model), .int(Int64(vector.count)), .blob(data)])
+    }
+
+    public func loadEmbeddings(model: String) throws -> [String: [Float]] {
+        lock.lock(); defer { lock.unlock() }
+        let rows = try db.query("SELECT id, dim, vec FROM clip_embedding WHERE model = ?", [.text(model)]) { r -> (String, [Float])? in
+            guard let id = r.text(0), let d = r.blob(2), d.count == r.int(1) * MemoryLayout<Float>.size else { return nil }
+            return (id, d.withUnsafeBytes { Array($0.bindMemory(to: Float.self)) })
+        }
+        return Dictionary(uniqueKeysWithValues: rows.compactMap { $0 })
+    }
+
+    public func deleteEmbeddings(ids: [String]) throws {
+        lock.lock(); defer { lock.unlock() }
+        for id in ids { try db.execute("DELETE FROM clip_embedding WHERE id = ?", [.text(id)]) }
+    }
+
+    public func embeddingCount() throws -> Int {
+        lock.lock(); defer { lock.unlock() }
+        return try db.query("SELECT COUNT(*) FROM clip_embedding", map: { $0.int(0) }).first ?? 0
+    }
+
+    public func deleteAllEmbeddings() throws {
+        lock.lock(); defer { lock.unlock() }
+        try db.execute("DELETE FROM clip_embedding")
     }
 }

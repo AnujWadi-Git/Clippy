@@ -12,6 +12,7 @@ public enum ContentClassifier {
         if singleLine, isPhone(t) { return .phone }
         if isJSON(t) { return .json }
         if singleLine, isPath(t) { return .path }
+        if isAddress(t) { return .address }
         if isCommand(t) { return .command }
         if looksLikeCode(t) { return .code }
         return .message
@@ -46,6 +47,22 @@ public enum ContentClassifier {
         let digits = s.filter(\.isNumber).count
         return (7...15).contains(digits) && (s.contains("+") || s.contains("(") || s.contains("-") || s.contains(" ") || s.contains("."))
     }
+    private static let streetSuffix = try! NSRegularExpression(
+        pattern: "\\b(st|street|ave|avenue|rd|road|blvd|boulevard|ln|lane|dr|drive|way|ct|court|pl|place|pkwy|parkway|hwy|highway|terrace|circle)\\b\\.?", options: .caseInsensitive)
+    private static let zip = try! NSRegularExpression(pattern: "\\b\\d{5}(-\\d{4})?\\b|\\b[A-Z]\\d[A-Z] ?\\d[A-Z]\\d\\b")
+    /// "123 Main St, Springfield, IL 62701" — a house number plus a street suffix, or a number + suffix + ZIP.
+    static func isAddress(_ s: String) -> Bool {
+        guard s.count <= 160, s.split(separator: "\n").count <= 4 else { return false }
+        let ns = s as NSString
+        let r = NSRange(location: 0, length: ns.length)
+        guard let first = s.split(separator: " ").first, first.first?.isNumber == true, first.count <= 6 else { return false }
+        guard let m = streetSuffix.firstMatch(in: s, range: r) else { return false }
+        // Need at least one street-name word between the house number and the suffix ("2 street lights" ≠ address).
+        let between = ns.substring(with: NSRange(location: 0, length: m.range.location)).split(separator: " ")
+        guard between.count >= 2 else { return false }
+        return s.contains(",") || zip.firstMatch(in: s, range: r) != nil || s.split(separator: " ").count >= 3
+    }
+
     static func isJSON(_ s: String) -> Bool {
         guard let f = s.first, f == "{" || f == "[", let data = s.data(using: .utf8) else { return false }
         return (try? JSONSerialization.jsonObject(with: data)) != nil

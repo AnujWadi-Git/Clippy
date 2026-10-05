@@ -13,6 +13,8 @@ public enum AITask: Hashable, Sendable {
     case explainCode, explainCommand, explainError
     case convertCode(String)
     case formatCode
+    /// Input is already a complete instruction (used for retrieval reranking). Never used on raw clipboard text.
+    case custom
 
     public var title: String {
         switch self {
@@ -24,6 +26,7 @@ public enum AITask: Hashable, Sendable {
         case .explainError: return "Explain Error"
         case .convertCode(let l): return "Convert to \(l)"
         case .formatCode: return "Fix Formatting"
+        case .custom: return "Ask"
         }
     }
     public var symbol: String {
@@ -34,6 +37,7 @@ public enum AITask: Hashable, Sendable {
         case .explainCode, .explainCommand, .explainError: return "questionmark.bubble"
         case .convertCode: return "arrow.triangle.2.circlepath"
         case .formatCode: return "text.alignleft"
+        case .custom: return "sparkles"
         }
     }
 }
@@ -63,6 +67,7 @@ public enum PromptBuilder {
         case .explainCommand: return "Explain what this terminal command does, flag by flag, briefly. Mention anything destructive."
         case .explainError: return "Explain this error message in plain language and suggest the most likely fix, briefly."
         case .convertCode(let l): return "Convert this code to \(l). Output only the code."
+        case .custom: return ""
         case .formatCode: return "Reformat this code with consistent indentation and style. Do not change behavior. Output only the code."
         }
     }

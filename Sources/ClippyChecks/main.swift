@@ -4,6 +4,7 @@ sensitiveChecks()
 processingChecks()
 storageChecks()
 aiChecks()
+searchIntelligenceChecks()
 if CommandLine.arguments.contains("--live-ai") { liveAIChecks() }
 
 print("\n\(passes) passed, \(failures) failed")

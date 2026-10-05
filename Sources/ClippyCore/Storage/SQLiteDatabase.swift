@@ -9,7 +9,7 @@ public enum SQLiteError: Error, CustomStringConvertible {
 }
 
 public enum SQLValue {
-    case int(Int64), double(Double), text(String), null
+    case int(Int64), double(Double), text(String), blob(Data), null
     public static func opt(_ s: String?) -> SQLValue { s.map { .text($0) } ?? .null }
     public static func opt(_ d: Date?) -> SQLValue { d.map { .double($0.timeIntervalSince1970) } ?? .null }
     public static func opt(_ i: Int?) -> SQLValue { i.map { .int(Int64($0)) } ?? .null }
@@ -70,6 +70,7 @@ public final class SQLiteDatabase {
             case .int(let v): sqlite3_bind_int64(stmt, idx, v)
             case .double(let v): sqlite3_bind_double(stmt, idx, v)
             case .text(let v): sqlite3_bind_text(stmt, idx, v, -1, SQLITE_TRANSIENT)
+            case .blob(let v): _ = v.withUnsafeBytes { sqlite3_bind_blob(stmt, idx, $0.baseAddress, Int32(v.count), SQLITE_TRANSIENT) }
             case .null: sqlite3_bind_null(stmt, idx)
             }
         }
@@ -86,6 +87,10 @@ public final class SQLiteDatabase {
         }
         public func date(_ c: Int32) -> Date? {
             sqlite3_column_type(stmt, c) == SQLITE_NULL ? nil : Date(timeIntervalSince1970: double(c))
+        }
+        public func blob(_ c: Int32) -> Data? {
+            guard let p = sqlite3_column_blob(stmt, c) else { return nil }
+            return Data(bytes: p, count: Int(sqlite3_column_bytes(stmt, c)))
         }
         public func optInt(_ c: Int32) -> Int? {
             sqlite3_column_type(stmt, c) == SQLITE_NULL ? nil : int(c)

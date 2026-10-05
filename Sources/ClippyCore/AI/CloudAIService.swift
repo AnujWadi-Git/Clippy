@@ -81,6 +81,13 @@ public final class AIRouter: @unchecked Sendable {
 
     public var isAvailable: Bool { unavailableReason() == nil }
 
+    /// `rawPrompt`: input is a ready-made instruction built by Clippy (retrieval rerank); only ever routed on-device.
+    public func run(_ task: AITask, input: String, rawPrompt: Bool) async throws -> AIResult {
+        guard rawPrompt else { return try await run(task, input: input) }
+        guard settings.aiEnabled, local.unavailableReason() == nil else { throw AIError.unavailable(unavailableReason() ?? "On-device AI unavailable") }
+        return AIResult(text: try await local.run(.custom, input: input), provider: .local)
+    }
+
     public func run(_ task: AITask, input: String) async throws -> AIResult {
         guard settings.aiEnabled else { throw AIError.disabled }
         try AIGuard.validate(input)
