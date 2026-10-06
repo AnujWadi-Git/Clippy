@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-check:
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Toolchain
+        run: swift --version
+
+      - name: Cache SwiftPM build
+        uses: actions/cache@v4
+        with:
+          path: .build
+          key: spm-${{ runner.os }}-${{ hashFiles('Package.swift', 'Sources/**') }}
+          restore-keys: spm-${{ runner.os }}-
+
+      - name: Build (release)
+        run: swift build -c release
+
+      - name: Unit checks
+        run: swift run -c release ClippyChecks
+
+      - name: Self-test (real pasteboard, DB, privacy filter)
+        # A hosted runner has no logged-in GUI session, so this can be flaky there.
+        continue-on-error: true
+        env:
+          CLIPPY_DATA_DIR: ${{ runner.temp }}/clippy-data
+          CLIPPY_DEFAULTS_SUITE: clippy.ci
+        run: swift run -c release Clippy --selftest
+
+      - name: Bundle the app and build the DMG
+        run: Scripts/make-dmg.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Clippy.dmg
+          path: dist/Clippy.dmg
+          retention-days: 14

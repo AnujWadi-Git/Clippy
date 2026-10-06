@@ -1,0 +1,32 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Unit checks
+        run: swift run -c release ClippyChecks
+
+      - name: Build the DMG
+        run: Scripts/make-dmg.sh
+
+      - name: Checksum
+        run: shasum -a 256 dist/Clippy.dmg | tee dist/Clippy.dmg.sha256
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/Clippy.dmg
+            dist/Clippy.dmg.sha256
+          generate_release_notes: true
